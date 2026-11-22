@@ -101,8 +101,11 @@ def map_question_topic(text: str, side: str, others: list[str]) -> dict:
 class CommentAnswer(BaseModel):
     topics: list[str] = Field(default_factory=list)
     tone: float = Field(ge=-1, le=1)
-    anxiety: float = Field(ge=0, le=1)
+    anxiety_level: str = Field(pattern="^(нет|слабая|заметная|сильная)$")
     quote: str = ""
+
+
+ANXIETY_LEVEL = {"нет": 0.0, "слабая": 0.3, "заметная": 0.65, "сильная": 0.9}
 
 
 def _contradiction(anxiety: float, score: float | None) -> float:
@@ -114,7 +117,8 @@ def _contradiction(anxiety: float, score: float | None) -> float:
 def analyze_comment(text: str, score: float | None, side: str = "intern") -> dict:
     """Темы, тон, тревожность, противоречие с баллами, дословная цитата.
 
-    Тревожность — максимум из оценки модели и словаря: небольшая модель склонна её занижать.
+    Тревожность — максимум из уровня, который выбрала модель, и словаря. Позитивному тексту без
+    тревожных слов модель не может поставить больше 0,3.
     Цитата проверяется вхождением в текст.
     """
     rules = fallback.analyze_comment(text, score)
@@ -135,7 +139,10 @@ def analyze_comment(text: str, score: float | None, side: str = "intern") -> dic
     pos = text.lower().find(quote.lower()) if quote else -1
     quote = text[pos : pos + len(quote)] if pos >= 0 else rules["quote"]  # дословно, в исходном регистре
     topics = [t for t in res.topics if t in TOPICS] or rules["topics"]
-    anxiety = round(max(res.anxiety, rules["anxiety"]), 2)
+    llm_anx = ANXIETY_LEVEL[res.anxiety_level]
+    if res.tone > 0.2 and rules["anxiety"] == 0:
+        llm_anx = min(llm_anx, 0.3)  # позитивный текст без тревожных слов: модели не доверяем на слово
+    anxiety = round(max(llm_anx, rules["anxiety"]), 2)
     return {
         "topics": topics,
         "tone": round(res.tone, 2),

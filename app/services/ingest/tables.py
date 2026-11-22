@@ -190,7 +190,7 @@ def read_tables(path: Path) -> list[RawTable]:
     out = []
     for name, raw in sheets.items():
         df, title = _frame_from_raw(raw)
-        if len(df) < 3 or df.shape[1] < 3:
+        if len(df) < 1 or df.shape[1] < 3:
             continue
         if not any(_id_like_share(df[c]) > 0.8 for c in df.columns):
             continue

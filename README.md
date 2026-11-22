@@ -4,35 +4,49 @@
 
 Команда InsightForge, кейс-чемпионат «Код города» (МГТС), направление «ИИ и автоматизация процессов».
 
+**Главное:** умная загрузка Excel + Word без правки кода · четыре типа расхождения и индекс здоровья пары · живая цепочка «ответ → пересчёт → дашборд» меньше чем за секунду · локальная ИИ-модель с запасными правилами · стажёр и наставник не видят ответы друг друга.
+
 ## Быстрый запуск
 
 Нужны Docker и Docker Compose.
 
 ```bash
-cp .env.example .env      # при необходимости поменяйте SECRET_KEY и DEMO_PASSWORD
-make up                   # поднимает db, app, ollama и скачивает модель qwen2.5:3b-instruct
-make demo                 # чистая база + демо-данные и демо-аккаунты
+cp .env.example .env      # поменяйте SECRET_KEY и DEMO_PASSWORD
+make up                   # db + app + ollama, скачивает модель qwen2.5:3b-instruct (~2 ГБ, один раз)
+make demo                 # чистая база + демо-данные (2–3 мин: комментарии разбирает ИИ)
+# или make demo-fast      # то же за секунды, комментарии разбираются правилами
 ```
 
-Приложение: http://localhost:8000, проверка: http://localhost:8000/health.
+Откройте http://localhost:8000. Демо-аккаунты (пароль — `DEMO_PASSWORD` из `.env`, по умолчанию `pulse-demo-2026`; на экране входа есть кнопки для жюри):
 
-Демо-аккаунты (пароль — `DEMO_PASSWORD` из `.env`): `hr@pulse.demo`, `lead@pulse.demo`, `mentor@pulse.demo`, `intern@pulse.demo`.
+| Почта | Роль |
+|---|---|
+| `hr@pulse.demo` | HR-партнёр: всё |
+| `lead@pulse.demo` | Руководитель программы: всё, без назначений |
+| `mentor@pulse.demo` | Наставник Н-204: только своя пара |
+| `intern@pulse.demo` | Стажёр С-104: только своя стажировка |
 
-Ollama по умолчанию работает на процессоре. С видеокартой NVIDIA и установленным `nvidia-container-toolkit`:
+Сценарий защиты по минутам — `docs/DEMO.md`.
+
+### Видеокарта
+Ollama по умолчанию работает на процессоре. Для NVIDIA (нужен `nvidia-container-toolkit`):
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
 ```
 
-Если Ollama недоступна, приложение продолжает работать на запасных правилах.
+Если Ollama недоступна, приложение продолжает работать на запасных правилах — в интерфейсе это помечено.
+
+## Без интернета
+Приложение не обращается в интернет: шрифты, стили, скрипты и модель — локальные. Наружу ходят только коннекторы Яндекс/Google Forms, если они включены. Перед выездом выполните `make up` с интернетом (скачать образы и модель).
 
 ## Локальная разработка
 
 ```bash
 uv sync
-uv run alembic upgrade head      # по умолчанию SQLite ./pulse.db
-uv run python -m app.seed --reset
-uv run uvicorn app.main:app --reload
+uv run alembic upgrade head            # по умолчанию SQLite ./pulse.db
+uv run python -m app.seed --reset --fast
+uv run uvicorn app.main:app --reload   # http://localhost:8000, OpenAPI — /docs
 ```
 
 Проверки перед PR:
@@ -41,8 +55,15 @@ uv run uvicorn app.main:app --reload
 uv run ruff check --fix && uv run ruff format && uv run pytest -q
 ```
 
-## Документация
+Полезное: `make fixtures` (6 вариантов тестовых файлов загрузки), `make validate` (проверка детектора → `docs/VALIDATION.md`), `make template` (шаблон `docs/template.xlsx`), `make admin` (служебная панель Streamlit).
 
+## Документация
 - `docs/SPEC.md` — спецификация.
-- `docs/ARCHITECTURE.md`, `docs/METHODOLOGY.md`, `docs/FORMS.md`, `docs/DEMO.md` — архитектура, методика, коннекторы форм, сценарий защиты.
-- `docs/STATUS.md` — состояние этапов.
+- `docs/ARCHITECTURE.md` — архитектура и потоки данных.
+- `docs/METHODOLOGY.md` — сигналы, личная шкала, индекс, ограничения (из него строится справочник в приложении).
+- `docs/VALIDATION.md` — проверка детектора на синтетике.
+- `docs/API.md` — эндпоинты и роли.
+- `docs/FORMS.md` — своя форма, Яндекс Формы, Google Forms.
+- `docs/DEMO.md` — сценарий защиты.
+- `docs/STATUS.md` — состояние этапов и расхождения со SPEC.
+- `docs/template.xlsx` — запасной шаблон, если формат данных совсем непредсказуем.

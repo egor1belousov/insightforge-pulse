@@ -1,4 +1,4 @@
-.PHONY: up down logs model seed demo test lint fixtures validate dev admin
+.PHONY: up down logs model seed demo demo-fast test lint fixtures template validate dev admin
 
 up:
 	docker compose up -d --build
@@ -20,6 +20,9 @@ seed:
 demo:
 	docker compose exec -T app python -m app.seed --reset
 
+demo-fast:
+	docker compose exec -T app python -m app.seed --reset --fast
+
 dev:
 	uv run alembic upgrade head && uv run uvicorn app.main:app --reload
 
@@ -31,6 +34,9 @@ lint:
 
 fixtures:
 	uv run python -m ml.make_fixtures
+
+template:
+	uv run python -m ml.make_template
 
 validate:
 	uv run python -m ml.validate

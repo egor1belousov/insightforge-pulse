@@ -148,7 +148,7 @@ def demo_records() -> list[Record]:
     return recs
 
 
-def seed_demo_data(db: Session, prog: Program) -> None:
+def seed_demo_data(db: Session, prog: Program, use_llm: bool = True) -> None:
     """Загружает демо-анкеты и пересчитывает аналитику."""
     persist(db, prog, demo_schema(), demo_records(), source="import")
     have = {(p.side, p.external_id) for p in db.query(Participant).filter(Participant.program_id == prog.id)}
@@ -156,7 +156,7 @@ def seed_demo_data(db: Session, prog: Program) -> None:
         if (side, ext) not in have:
             db.add(Participant(program_id=prog.id, external_id=ext, side=side, department=dept))
     db.commit()
-    recompute_program(db, prog)
+    recompute_program(db, prog, use_llm=use_llm)
 
 
 COURSES = [
@@ -288,13 +288,21 @@ def seed_learning(db: Session, prog: Program) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Демо-данные «Пульс адаптации»")
     parser.add_argument("--reset", action="store_true", help="очистить базу перед заполнением")
+    parser.add_argument(
+        "--fast", action="store_true", help="разбор комментариев правилами, без LLM (секунды вместо минут)"
+    )
     args = parser.parse_args()
     if args.reset:
         reset_db()
     with SessionLocal() as db:
         prog = seed_accounts(db)
         if args.reset or not db.query(Response).count():
-            seed_demo_data(db, prog)
+            print(
+                "Загружаем демо-анкеты и пересчитываем сигналы"
+                + ("" if args.fast else " (комментарии разбирает ИИ, до 2–3 минут)")
+                + "…"
+            )
+            seed_demo_data(db, prog, use_llm=not args.fast)
         seed_learning(db, prog)
         print(f"Готово: программа «{prog.name}», демо-аккаунты @pulse.demo")
 
