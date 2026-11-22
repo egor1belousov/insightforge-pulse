@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     smtp_password: str = ""
 
     yandex_forms_token: str = ""
+    yandex_forms_api: str = "https://api.forms.yandex.net/v1"
+    yandex_webhook_secret: str = ""
     yandex_form_id: str = ""
     google_forms_credentials: str = ""
     google_form_id: str = ""

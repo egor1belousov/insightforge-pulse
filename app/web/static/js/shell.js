@@ -23,3 +23,32 @@
   const lo = $("logout-btn");
   if (lo) lo.addEventListener("click", async () => { await Pulse.api("POST", "/api/auth/logout"); location.href = "/login"; });
 })();
+
+// Уведомления и живые события (SSE) для HR и руководителя.
+(function () {
+  "use strict";
+  const main = document.getElementById("main");
+  if (!main) return;
+  const role = main.dataset.role, staff = role === "hr" || role === "lead";
+  const list = document.getElementById("notif-list"), cnt = document.getElementById("notif-count");
+  async function loadNotif() {
+    try {
+      const n = await Pulse.api("GET", "/api/notifications");
+      cnt.hidden = !n.unread; cnt.textContent = n.unread;
+      list.innerHTML = n.items.length ? n.items.map((it) => '<a class="item" href="' + Pulse.esc(it.link || "#") + '"><span class="dot" style="margin-top:6px;background:' + (it.level === "warn" ? "#E38B00" : it.read ? "#B0B7C6" : "#0A7CD6") + '"></span><span class="col" style="gap:2px"><b class="small">' + Pulse.esc(it.title) + '</b><span class="xs muted">' + Pulse.esc(it.sub) + "</span></span></a>").join("") : '<p class="small muted" style="padding:10px">Новых уведомлений нет.</p>';
+    } catch (e) { /* без уведомлений страница работает */ }
+  }
+  loadNotif();
+  window.addEventListener("pulse:notif-open", async () => { await Pulse.api("POST", "/api/notifications/read"); cnt.hidden = true; });
+  window.PulseShell = { loadNotif };
+  if (!staff || !window.EventSource) return;
+  const es = new EventSource("/api/events");
+  es.addEventListener("pair_updated", (e) => {
+    const d = JSON.parse(e.data);
+    Pulse.toast(d.message);
+    loadNotif();
+    window.dispatchEvent(new CustomEvent("pulse:pair-updated", { detail: d }));
+  });
+  es.addEventListener("data_imported", (e) => { window.dispatchEvent(new CustomEvent("pulse:data-imported", { detail: JSON.parse(e.data) })); });
+  es.addEventListener("talk_request", (e) => { const d = JSON.parse(e.data); Pulse.toast(d.who + " просит разговор с HR · тема: " + d.topic); loadNotif(); });
+})();

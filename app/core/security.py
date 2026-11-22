@@ -76,3 +76,19 @@ class LoginRateLimiter:
 
 
 login_limiter = LoginRateLimiter()
+
+
+def make_survey_token(participant_id: int, days: int = 45) -> str:
+    """Ссылка на анкету без входа: подписанный токен участника."""
+    now = datetime.now(UTC)
+    payload = {"pid": participant_id, "kind": "survey", "iat": now, "exp": now + timedelta(days=days)}
+    return jwt.encode(payload, get_settings().secret_key, algorithm="HS256")
+
+
+def read_survey_token(token: str) -> int | None:
+    """ID участника из токена анкеты или None."""
+    try:
+        payload = jwt.decode(token, get_settings().secret_key, algorithms=["HS256"])
+        return int(payload["pid"]) if payload.get("kind") == "survey" else None
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None

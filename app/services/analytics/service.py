@@ -22,6 +22,7 @@ from app.db.models import (
 )
 from app.services.analytics.core import Comment, PairResult, PairSeries, evaluate, program_signals
 from app.services.llm import comments as comment_llm
+from app.services.llm.client import enabled as llm_enabled
 
 MONTHS = [
     "январь",
@@ -97,15 +98,19 @@ def _mentor_by_period(db: Session, pair: Pair, periods: list[int]) -> dict[int, 
 
 
 def ensure_comment_analysis(
-    db: Session, answer: Answer, score: float | None, side: str = "intern"
+    db: Session, answer: Answer, score: float | None, side: str = "intern", use_llm: bool = True
 ) -> CommentAnalysis:
     """Разбор комментария с кэшем по хешу текста."""
     text = answer.text or ""
     h = hashlib.sha256(text.strip().encode()).hexdigest()
+    want_llm = use_llm and llm_enabled()
     ca = db.query(CommentAnalysis).filter(CommentAnalysis.answer_id == answer.id).first()
-    if ca and ca.text_hash == h:
+    if ca and ca.text_hash == h and not (want_llm and ca.fallback):
         return ca
-    cached = db.query(CommentAnalysis).filter(CommentAnalysis.text_hash == h).first()
+    q = db.query(CommentAnalysis).filter(CommentAnalysis.text_hash == h)
+    if want_llm:
+        q = q.filter(CommentAnalysis.fallback.is_(False))
+    cached = q.first()
     if cached:
         res = {
             "topics": cached.topics,
@@ -117,7 +122,7 @@ def ensure_comment_analysis(
         }
         res["contradiction"] = comment_llm.contradiction(res["anxiety"], score)
     else:
-        res = comment_llm.analyze(text, score, side)
+        res = comment_llm.analyze(text, score, side) if use_llm else comment_llm.analyze_rules(text, score)
     if ca is None:
         ca = CommentAnalysis(answer_id=answer.id, text_hash=h)
         db.add(ca)
@@ -127,7 +132,7 @@ def ensure_comment_analysis(
     return ca
 
 
-def load_series(db: Session, program: Program) -> list[PairSeries]:
+def load_series(db: Session, program: Program, use_llm: bool = True) -> list[PairSeries]:
     """Ряды оценок всех пар программы по темам и месяцам."""
     topics = {t.id: t.code for t in db.query(Topic).filter(Topic.organization_id == program.organization_id)}
     pairs = db.query(Pair).filter(Pair.program_id == program.id).order_by(Pair.code).all()
@@ -177,7 +182,7 @@ def load_series(db: Session, program: Program) -> list[PairSeries]:
             start_period=pair.start_period,
         )
         for side, period, a in texts:
-            ca = ensure_comment_analysis(db, a, ps.overall(side, period), side)
+            ca = ensure_comment_analysis(db, a, ps.overall(side, period), side, use_llm=use_llm)
             ps.comments.append(
                 Comment(
                     side=side,
@@ -195,14 +200,16 @@ def load_series(db: Session, program: Program) -> list[PairSeries]:
     return out
 
 
-def recompute_program(db: Session, program: Program) -> dict[int, dict[int, PairResult]]:
+def recompute_program(
+    db: Session, program: Program, use_llm: bool = True
+) -> dict[int, dict[int, PairResult]]:
     """Пересчитывает сигналы и индекс всех пар за все месяцы и сохраняет их.
 
     Returns:
         Результаты: pair_id → период → состояние.
     """
     cfg = analytics_config(db, program.organization_id)
-    series = load_series(db, program)
+    series = load_series(db, program, use_llm)
     verdicts = {
         (s.pair_id, s.period, s.type, s.topic): s.verdict
         for s in db.query(Signal).filter(Signal.program_id == program.id, Signal.verdict.isnot(None))

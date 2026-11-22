@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Анкета{% endblock %}
+{% block body %}
+<main class="main" style="max-width: 640px;">
+  <section class="hero">
+    <div class="sphere" aria-hidden="true"></div>
+    <p class="tagline">Пульс адаптации · ежемесячная анкета</p>
+    <h1 id="sv-title">Анкета</h1>
+    <p class="sub" id="sv-sub">2 минуты. Отвечайте честно — это помогает вовремя заметить, где нужна помощь.</p>
+  </section>
+  <div id="sv-box"><p class="muted">Загружаем анкету…</p></div>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/survey.js?v={{ asset_v }}"></script>
+<script>
+(async function () {
+  const token = {{ token | tojson }}, box = document.getElementById("sv-box");
+  try {
+    const d = await Pulse.api("GET", "/api/survey/" + token);
+    document.getElementById("sv-title").textContent = (d.participant.side === "intern" ? "Стажёр " : "Наставник ") + d.participant.external_id + " · " + d.period_name;
+    if (d.submitted) document.getElementById("sv-sub").textContent = "Анкета за этот месяц уже получена. Можно отправить заново — сохранится последняя.";
+    PulseSurvey.render(box, d.questionnaire, async (answers, comment) => {
+      await Pulse.api("POST", "/api/survey/" + token, { answers, comment });
+      box.innerHTML = '<div class="card col"><p class="head" style="font-size:22px">Спасибо! Ответы отправлены.</p><p class="muted">Следующая анкета — через месяц, мы напомним.</p></div>';
+    });
+  } catch (x) { box.innerHTML = '<div class="form-error">' + Pulse.esc(x.message) + "</div>"; }
+})();
+</script>
+{% endblock %}
