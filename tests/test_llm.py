@@ -47,7 +47,7 @@ def test_comment_quote_must_be_verbatim(fake_llm) -> None:
     fake_llm["CommentAnswer"] = {
         "topics": ["load", "xxx"],
         "tone": -0.6,
-        "anxiety": 0.4,
+        "anxiety_level": "слабая",
         "quote": "Выдуманная цитата",
     }
     r = tasks.analyze_comment(text, 0.36)
@@ -58,7 +58,7 @@ def test_comment_quote_must_be_verbatim(fake_llm) -> None:
 
 
 def test_anxiety_is_max_of_model_and_rules(fake_llm) -> None:
-    fake_llm["CommentAnswer"] = {"topics": [], "tone": 0.1, "anxiety": 0.2, "quote": ""}
+    fake_llm["CommentAnswer"] = {"topics": [], "tone": 0.1, "anxiety_level": "нет", "quote": ""}
     r = tasks.analyze_comment("Боюсь лишний раз спрашивать", 0.4)
     assert r["anxiety"] >= 0.5 and not r["fallback"]
 
@@ -102,7 +102,13 @@ def test_quote_keeps_original_case(fake_llm) -> None:
     fake_llm["CommentAnswer"] = {
         "topics": ["growth"],
         "tone": -0.2,
-        "anxiety": 0.7,
+        "anxiety_level": "заметная",
         "quote": "только непонятно, куда я расту",
     }
     assert tasks.analyze_comment(text, 0.78)["quote"] == "Только непонятно, куда я расту"
+
+
+def test_positive_text_cannot_get_high_anxiety_from_model(fake_llm) -> None:
+    fake_llm["CommentAnswer"] = {"topics": [], "tone": 0.5, "anxiety_level": "заметная", "quote": ""}
+    r = tasks.analyze_comment("Всё хорошо, многому учусь", 0.85)
+    assert r["anxiety"] <= 0.3 and r["contradiction"] < 0.6
