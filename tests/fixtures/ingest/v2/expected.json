@@ -1,0 +1,124 @@
+{
+ "files": {
+  "intern_answers.csv": "intern",
+  "mentor_answers.csv": "mentor"
+ },
+ "pairs": [
+  [
+   "S-101",
+   "M-201"
+  ],
+  [
+   "S-102",
+   "M-202"
+  ],
+  [
+   "S-103",
+   "M-203"
+  ],
+  [
+   "S-104",
+   "M-204"
+  ],
+  [
+   "S-105",
+   "M-205"
+  ]
+ ],
+ "responses": {
+  "intern": 30,
+  "mentor": 30
+ },
+ "questions": {
+  "intern": 7,
+  "mentor": 7
+ },
+ "sample": [
+  {
+   "side": "intern",
+   "id": "S-101",
+   "period": 1,
+   "topic": "auto",
+   "norm": 0.5
+  },
+  {
+   "side": "intern",
+   "id": "S-101",
+   "period": 6,
+   "topic": "auto",
+   "norm": 1.0
+  },
+  {
+   "side": "intern",
+   "id": "S-102",
+   "period": 1,
+   "topic": "auto",
+   "norm": 0.75
+  },
+  {
+   "side": "intern",
+   "id": "S-102",
+   "period": 6,
+   "topic": "auto",
+   "norm": 1.0
+  },
+  {
+   "side": "intern",
+   "id": "S-103",
+   "period": 1,
+   "topic": "auto",
+   "norm": 0.75
+  },
+  {
+   "side": "intern",
+   "id": "S-103",
+   "period": 6,
+   "topic": "auto",
+   "norm": 0.5
+  },
+  {
+   "side": "mentor",
+   "id": "M-201",
+   "period": 1,
+   "topic": "auto",
+   "norm": 0.5
+  },
+  {
+   "side": "mentor",
+   "id": "M-201",
+   "period": 6,
+   "topic": "auto",
+   "norm": 0.75
+  },
+  {
+   "side": "mentor",
+   "id": "M-202",
+   "period": 1,
+   "topic": "auto",
+   "norm": 0.5
+  },
+  {
+   "side": "mentor",
+   "id": "M-202",
+   "period": 6,
+   "topic": "auto",
+   "norm": 0.25
+  },
+  {
+   "side": "mentor",
+   "id": "M-203",
+   "period": 1,
+   "topic": "auto",
+   "norm": 0.5
+  },
+  {
+   "side": "mentor",
+   "id": "M-203",
+   "period": 6,
+   "topic": "auto",
+   "norm": 0.75
+  }
+ ],
+ "quality": [],
+ "asks": 0
+}
