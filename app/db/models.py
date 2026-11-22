@@ -306,3 +306,57 @@ class Notification(Base):
     level: Mapped[str] = mapped_column(String(20), default="info")
     read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Course(Base):
+    __tablename__ = "courses"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("programs.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20), default="Курс")
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[str] = mapped_column(Text, default="")
+    topic: Mapped[str | None] = mapped_column(String(40))
+    audience: Mapped[str] = mapped_column(String(10), default="intern")
+    duration: Mapped[str] = mapped_column(String(40), default="")
+    file_name: Mapped[str | None] = mapped_column(String(300))
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Test(Base):
+    __tablename__ = "tests"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    program_id: Mapped[int] = mapped_column(ForeignKey("programs.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+    generated_by: Mapped[str] = mapped_column(String(80), default="rules")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    questions: Mapped[list["TestQuestion"]] = relationship(
+        order_by="TestQuestion.id", cascade="all, delete-orphan"
+    )
+
+
+class TestQuestion(Base):
+    __tablename__ = "test_questions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    test_id: Mapped[int] = mapped_column(ForeignKey("tests.id", ondelete="CASCADE"), index=True)
+    text: Mapped[str] = mapped_column(Text)
+    options: Mapped[list] = mapped_column(JSON, default=list)
+    correct: Mapped[int] = mapped_column(Integer, default=0)
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Assignment(Base):
+    __tablename__ = "assignments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    participant_id: Mapped[int] = mapped_column(ForeignKey("participants.id", ondelete="CASCADE"), index=True)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"))
+    test_id: Mapped[int | None] = mapped_column(ForeignKey("tests.id", ondelete="CASCADE"))
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    score: Mapped[float | None] = mapped_column(Float)
+    answers: Mapped[dict] = mapped_column(JSON, default=dict)
+    reason: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
