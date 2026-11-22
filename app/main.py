@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from app.api import auth, programs
 from app.core.settings import get_settings
 from app.db.session import engine
 
@@ -15,6 +16,8 @@ app = FastAPI(
     redoc_url=None,
     openapi_url="/openapi.json" if settings.is_dev else None,
 )
+app.include_router(auth.router)
+app.include_router(programs.router)
 
 
 @app.get("/health", tags=["служебное"])
