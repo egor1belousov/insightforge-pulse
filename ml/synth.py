@@ -68,7 +68,7 @@ class SynthPair:
         ex = self.extra.get(side, {}).get(topic, 0.0) * (month / 5)
         dip = 0.0
         if topic in ("support", "load") and month in (2, 3):
-            dip = -0.08  # системная просадка программы на 3–4-м месяце
+            dip = -0.15 if month == 2 else -0.08  # системная просадка программы на 3–4-м месяце
         return round(max(0.0, min(1.0, base[month] + OFF[side][topic] + ex + dip)), 3)
 
 
@@ -88,7 +88,7 @@ PAIRS: list[SynthPair] = [
         "Эксплуатация ВОЛС",
         [0.62, 0.68, 0.74, 0.79, 0.82, 0.85],
         [0.58, 0.55, 0.50, 0.46, 0.42, 0.38],
-        extra={"intern": {"auto": 0.04}, "mentor": {"auto": -0.06}},
+        extra={"intern": {"auto": 0.10}, "mentor": {"auto": -0.14}},
         comments={
             "intern": {5: "Справляюсь сам, помощь почти не нужна", 3: "Всё понятно, работаю самостоятельно"},
             "mentor": {

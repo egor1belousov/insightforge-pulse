@@ -1,0 +1,190 @@
+{
+ "n": 200,
+ "seed": 7,
+ "results": {
+  "без округления": [
+   {
+    "kind": "overestimate",
+    "title": "Стажёр переоценивает себя, расхождение растёт",
+    "n": 200,
+    "recall": 0.995,
+    "median_delay": 1,
+    "mean_delay": 0.82,
+    "types": {
+     "growth": 199,
+     "lag": 163,
+     "level": 162
+    }
+   },
+   {
+    "kind": "blind",
+    "title": "Стажёр тревожится, наставник не видит",
+    "n": 200,
+    "recall": 0.99,
+    "median_delay": 1,
+    "mean_delay": 1.2,
+    "types": {
+     "growth": 193,
+     "lag": 176,
+     "level": 153
+    }
+   },
+   {
+    "kind": "overload",
+    "title": "Общее падение, наставник перегружен",
+    "n": 200,
+    "recall": 0.835,
+    "median_delay": 2,
+    "mean_delay": 1.93,
+    "types": {
+     "lag": 94,
+     "decline": 153
+    }
+   },
+   {
+    "kind": "words",
+    "title": "Высокие баллы, тревожный текст",
+    "n": 200,
+    "recall": 1.0,
+    "median_delay": 0,
+    "mean_delay": 0.0,
+    "types": {
+     "words": 200
+    }
+   },
+   {
+    "kind": "healthy",
+    "title": "Здоровая пара",
+    "n": 200,
+    "false_alarm_pairs": 0.03,
+    "false_alarm_months": 0.005,
+    "types": {
+     "growth": 6
+    }
+   }
+  ],
+  "1–10": [
+   {
+    "kind": "overestimate",
+    "title": "Стажёр переоценивает себя, расхождение растёт",
+    "n": 200,
+    "recall": 0.995,
+    "median_delay": 1,
+    "mean_delay": 0.9,
+    "types": {
+     "growth": 198,
+     "lag": 151,
+     "level": 153
+    }
+   },
+   {
+    "kind": "blind",
+    "title": "Стажёр тревожится, наставник не видит",
+    "n": 200,
+    "recall": 0.985,
+    "median_delay": 1,
+    "mean_delay": 1.14,
+    "types": {
+     "growth": 193,
+     "lag": 180,
+     "level": 148
+    }
+   },
+   {
+    "kind": "overload",
+    "title": "Общее падение, наставник перегружен",
+    "n": 200,
+    "recall": 0.875,
+    "median_delay": 2,
+    "mean_delay": 2.0,
+    "types": {
+     "decline": 156,
+     "lag": 95
+    }
+   },
+   {
+    "kind": "words",
+    "title": "Высокие баллы, тревожный текст",
+    "n": 200,
+    "recall": 1.0,
+    "median_delay": 0,
+    "mean_delay": 0.0,
+    "types": {
+     "words": 200
+    }
+   },
+   {
+    "kind": "healthy",
+    "title": "Здоровая пара",
+    "n": 200,
+    "false_alarm_pairs": 0.04,
+    "false_alarm_months": 0.007,
+    "types": {
+     "growth": 8
+    }
+   }
+  ],
+  "1–5": [
+   {
+    "kind": "overestimate",
+    "title": "Стажёр переоценивает себя, расхождение растёт",
+    "n": 200,
+    "recall": 0.99,
+    "median_delay": 1,
+    "mean_delay": 1.04,
+    "types": {
+     "growth": 198,
+     "lag": 152,
+     "level": 150
+    }
+   },
+   {
+    "kind": "blind",
+    "title": "Стажёр тревожится, наставник не видит",
+    "n": 200,
+    "recall": 0.99,
+    "median_delay": 1,
+    "mean_delay": 1.14,
+    "types": {
+     "growth": 196,
+     "lag": 176,
+     "level": 153
+    }
+   },
+   {
+    "kind": "overload",
+    "title": "Общее падение, наставник перегружен",
+    "n": 200,
+    "recall": 0.855,
+    "median_delay": 2,
+    "mean_delay": 1.91,
+    "types": {
+     "lag": 132,
+     "decline": 140
+    }
+   },
+   {
+    "kind": "words",
+    "title": "Высокие баллы, тревожный текст",
+    "n": 200,
+    "recall": 1.0,
+    "median_delay": 0,
+    "mean_delay": 0.0,
+    "types": {
+     "words": 200
+    }
+   },
+   {
+    "kind": "healthy",
+    "title": "Здоровая пара",
+    "n": 200,
+    "false_alarm_pairs": 0.125,
+    "false_alarm_months": 0.024,
+    "types": {
+     "growth": 24,
+     "lag": 1
+    }
+   }
+  ]
+ }
+}
