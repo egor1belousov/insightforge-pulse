@@ -123,3 +123,68 @@ def import_page(
 @router.get("/survey/{token}")
 def survey_page(request: Request, token: str) -> Response:
     return render(request, "survey.html", token=token)
+
+
+@router.get("/dashboard")
+def dashboard_page(
+    request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user_optional)
+) -> Response:
+    return app_page(
+        request, db, user, "app/dashboard.html", "dash", ("hr", "lead"), demo=get_settings().demo_mode
+    )
+
+
+@router.get("/pairs")
+def pairs_page(
+    request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user_optional)
+) -> Response:
+    return app_page(request, db, user, "app/pairs.html", "pairs", ("hr", "lead"))
+
+
+LANDING_ROLES = [
+    {
+        "key": "hr",
+        "tag": "ВИДИТ ВСЁ",
+        "label": "HR-партнёр",
+        "short": "HR",
+        "desc": "Программа и пары, дашборд с конструктором, анкеты и рассылки, курсы и тесты, настройки.",
+    },
+    {
+        "key": "lead",
+        "tag": "ВИДИТ ВСЁ, НЕ НАЗНАЧАЕТ",
+        "label": "Руководитель программы",
+        "short": "руководитель",
+        "desc": "Картина программы, пары, отчёт, справочник по методике, ИИ-ассистент.",
+    },
+    {
+        "key": "mentor",
+        "tag": "ТОЛЬКО СВОЯ ПАРА",
+        "label": "Наставник",
+        "short": "наставник",
+        "desc": "Своя анкета, свои оценки, темы для разговора, прямой запрос к HR, памятки.",
+    },
+    {
+        "key": "intern",
+        "tag": "ТОЛЬКО СВОЯ СТАЖИРОВКА",
+        "label": "Стажёр",
+        "short": "стажёр",
+        "desc": "Своя анкета, прогресс, курсы и тесты, прямой запрос к HR, ассистент.",
+    },
+]
+
+
+@router.get("/")
+def landing(request: Request) -> Response:
+    return render(request, "landing.html", roles=LANDING_ROLES, demo=get_settings().demo_mode)
+
+
+@router.get("/register")
+def register_page(request: Request, user: User | None = Depends(current_user_optional)) -> Response:
+    if user is not None:
+        return RedirectResponse(home_for(user), status_code=303)
+    return render(request, "auth/register.html")
+
+
+@router.get("/invite/{token}")
+def invite_page(request: Request, token: str) -> Response:
+    return render(request, "auth/invite.html", token=token)

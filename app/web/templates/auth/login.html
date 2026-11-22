@@ -41,6 +41,9 @@
     b.setAttribute("aria-pressed", "true");
     f.email.value = b.dataset.email; f.password.value = demoPwd || "";
   }));
+  const as = new URLSearchParams(location.search).get("as");
+  const pick = as && document.querySelector('.demo-acc[data-email="' + as + '@pulse.demo"]');
+  if (pick) { pick.click(); setTimeout(() => f.requestSubmit(), 150); }
   f.addEventListener("submit", async (e) => {
     e.preventDefault(); err.hidden = true;
     try {

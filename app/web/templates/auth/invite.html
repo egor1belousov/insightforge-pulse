@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Приглашение{% endblock %}
+{% block body %}
+<div class="auth">
+  <div class="side">
+    <div class="sphere" aria-hidden="true"></div>
+    <a class="back" href="/">← На главную</a>
+    <div style="margin-top:auto">
+      <p class="kicker">ПУЛЬС АДАПТАЦИИ</p>
+      <p class="big">Вас пригласили</p>
+      <p class="lead">Роль и привязка к паре уже заданы HR. Осталось назвать себя и придумать пароль.</p>
+    </div>
+  </div>
+  <form class="form" id="inv-form" novalidate>
+    <h1>Принять приглашение</h1>
+    <div class="form-error" id="err" role="alert" hidden></div>
+    <div id="inv-info" class="card tight small muted">Проверяем приглашение…</div>
+    <div class="field"><label for="name">Как к вам обращаться</label><input class="input" id="name" autocomplete="name" required></div>
+    <div class="field"><label for="password">Пароль <span class="muted">(не короче 10 символов)</span></label><input class="input" id="password" type="password" autocomplete="new-password" minlength="10" required></div>
+    <button type="submit" class="btn primary" style="min-height:50px">Войти →</button>
+    <p class="xs muted">Ваши ответы в анкетах видит только HR. Другая сторона пары их не увидит.</p>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async function () {
+  const token = {{ token | tojson }}, err = document.getElementById("err"), info = document.getElementById("inv-info");
+  const ROLE = { lead: "Руководитель программы", mentor: "Наставник", intern: "Стажёр" };
+  try {
+    const d = await Pulse.api("GET", "/api/auth/invites/" + token);
+    info.innerHTML = "<b>" + Pulse.esc(ROLE[d.role] || d.role) + (d.external_id ? " " + Pulse.esc(d.external_id) : "") + "</b> · " + Pulse.esc(d.email) + "<br>" + Pulse.esc(d.organization);
+  } catch (x) { info.hidden = true; err.textContent = x.message; err.hidden = false; document.querySelector("#inv-form button").disabled = true; }
+  document.getElementById("inv-form").addEventListener("submit", async (e) => {
+    e.preventDefault(); err.hidden = true;
+    try {
+      const me = await Pulse.api("POST", "/api/auth/invites/" + token + "/accept", { name: e.target.name.value, password: e.target.password.value });
+      location.href = me.role === "lead" ? "/dashboard" : "/me";
+    } catch (x) { err.textContent = x.message; err.hidden = false; }
+  });
+})();
+</script>
+{% endblock %}

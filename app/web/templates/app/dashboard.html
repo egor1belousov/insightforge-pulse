@@ -1,0 +1,6 @@
+{% extends "app/layout.html" %}
+{% block title %}Дашборд{% endblock %}
+{% block content %}
+<div id="dash" class="col" style="gap:18px"><p class="muted">Загружаем дашборд…</p></div>
+{% endblock %}
+{% block page_scripts %}<script>window.PULSE_DEMO = {{ demo | tojson }};</script><script src="/static/js/dashboard.js?v={{ asset_v }}"></script>{% endblock %}

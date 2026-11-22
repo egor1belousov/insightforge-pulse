@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.api import auth, forms, imports, llm, programs
+from app.api import auth, dashboard, forms, imports, llm, programs
 from app.core.settings import get_settings
 from app.db.session import engine
 from app.web import pages
@@ -47,6 +47,7 @@ app.include_router(programs.router)
 app.include_router(imports.router)
 app.include_router(llm.router)
 app.include_router(forms.router)
+app.include_router(dashboard.router)
 app.include_router(pages.router)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static")
 

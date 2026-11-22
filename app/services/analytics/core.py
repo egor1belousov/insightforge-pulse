@@ -10,6 +10,7 @@ from statistics import median
 SIDES = ("intern", "mentor")
 SIDE_RU = {"intern": "Стажёр", "mentor": "Наставник"}
 SIDE_RU_GEN = {"intern": "стажёра", "mentor": "наставника"}
+SIDE_RU_DAT = {"intern": "стажёру", "mentor": "наставнику"}
 TOPIC_RU = {
     "tasks": "понимание задач",
     "auto": "самостоятельность",
@@ -68,7 +69,8 @@ class PairSeries:
         """Темы, по которым есть оценки обеих сторон."""
         a = set(self.values.get("intern", {}))
         b = set(self.values.get("mentor", {}))
-        return sorted(a & b)
+        order = list(TOPIC_RU)
+        return sorted(a & b, key=lambda t: (order.index(t) if t in order else len(order), t))
 
     def has(self, side: str, period: int) -> bool:
         """Есть ли анкета стороны в периоде."""
@@ -295,7 +297,7 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
                 float(lag_months),
                 f"{SIDE_RU[lag_side]} снижает оценки с месяца «{month_name(lag_from)}»{topic_txt}; "
                 f"{SIDE_RU_GEN[blind]} спада не видит: {lag_months} мес.",
-                f"Одна сторона уже заметила проблему, вторая — ещё нет. Показать расхождение {SIDE_RU_GEN[blind]}.",
+                f"Одна сторона уже заметила проблему, вторая — ещё нет. Показать расхождение {SIDE_RU_DAT[blind]}.",
                 {
                     "side": lag_side,
                     "blind": blind,
