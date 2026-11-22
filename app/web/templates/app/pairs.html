@@ -1,0 +1,18 @@
+{% extends "app/layout.html" %}
+{% block title %}Пары{% endblock %}
+{% block content %}
+<div class="row top" style="gap:18px; align-items:flex-start;">
+  <aside class="card col" aria-label="Список пар" style="flex:1 1 280px; max-width:100%; padding:14px; position:sticky; top:80px;">
+    <label for="pair-search" class="sr-only">Найти пару</label>
+    <input id="pair-search" type="search" class="input small" placeholder="Найти: П-02, С-104, ВОЛС…">
+    <div class="row" style="gap:6px" id="pair-filters">
+      <button type="button" class="pill" data-f="all" aria-pressed="true">Все</button>
+      <button type="button" class="pill" data-f="risk" aria-pressed="false">Требуют внимания</button>
+      <button type="button" class="pill" data-f="ok" aria-pressed="false">Здоровые</button>
+    </div>
+    <div id="pair-list" class="col" style="gap:8px"></div>
+  </aside>
+  <div id="pair-card" class="col" style="flex:999 1 600px; min-width:0; gap:16px;"><p class="muted">Выберите пару.</p></div>
+</div>
+{% endblock %}
+{% block page_scripts %}<script src="/static/js/pairs.js?v={{ asset_v }}"></script>{% endblock %}
