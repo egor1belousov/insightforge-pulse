@@ -1,0 +1,51 @@
+[project]
+name = "insightforge-pulse"
+version = "0.1.0"
+description = "Пульс адаптации: динамика расхождения оценок стажёра и наставника"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "argon2-cffi>=23.1",
+    "pyjwt>=2.9",
+    "httpx>=0.27",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "openpyxl>=3.1",
+    "xlrd>=2.0",
+    "python-docx>=1.1",
+    "rapidfuzz>=3.9",
+    "reportlab>=4.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+admin = [
+    "streamlit>=1.38",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+extend-exclude = ["reference"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B008", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
