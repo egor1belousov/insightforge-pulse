@@ -112,12 +112,12 @@ def create_invite(db: Session, *, by: User, email: str, role: str, external_id: 
         AccountError: если роль или почта некорректны.
     """
     email = _check_email(email)
-    if role not in ("lead", "mentor", "intern"):
-        raise AccountError("Роль приглашения: руководитель, наставник или стажёр.")
+    if role not in ("hr", "lead", "mentor", "intern"):
+        raise AccountError("Роль приглашения: HR, руководитель, наставник или стажёр.")
     if db.query(User).filter(User.email == email).first():
         raise AccountError("Пользователь с этой почтой уже есть.")
     ext = (external_id or "").strip() or None
-    if role == "lead":
+    if role in ("hr", "lead"):
         ext = None
     inv = Invite(
         token=new_token(),

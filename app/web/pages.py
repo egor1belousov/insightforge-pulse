@@ -188,3 +188,20 @@ def register_page(request: Request, user: User | None = Depends(current_user_opt
 @router.get("/invite/{token}")
 def invite_page(request: Request, token: str) -> Response:
     return render(request, "auth/invite.html", token=token)
+
+
+def _section(path: str, template: str, active: str, roles: tuple[str, ...], title: str):
+    def page(
+        request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user_optional)
+    ) -> Response:
+        return app_page(
+            request, db, user, template, active, roles, page_title=title, demo=get_settings().demo_mode
+        )
+
+    router.add_api_route(path, page, methods=["GET"], include_in_schema=False)
+
+
+_section("/program", "app/program.html", "prog", ("hr",), "Программа")
+_section("/forms", "app/forms.html", "forms", ("hr",), "Анкеты")
+_section("/me", "app/me.html", "me", ("mentor", "intern"), "Моя стажировка")
+_section("/settings", "app/settings.html", "settings", ("hr",), "Настройки")
