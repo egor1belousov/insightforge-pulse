@@ -96,7 +96,9 @@ def _mentor_by_period(db: Session, pair: Pair, periods: list[int]) -> dict[int, 
     return out
 
 
-def ensure_comment_analysis(db: Session, answer: Answer, score: float | None) -> CommentAnalysis:
+def ensure_comment_analysis(
+    db: Session, answer: Answer, score: float | None, side: str = "intern"
+) -> CommentAnalysis:
     """Разбор комментария с кэшем по хешу текста."""
     text = answer.text or ""
     h = hashlib.sha256(text.strip().encode()).hexdigest()
@@ -115,7 +117,7 @@ def ensure_comment_analysis(db: Session, answer: Answer, score: float | None) ->
         }
         res["contradiction"] = comment_llm.contradiction(res["anxiety"], score)
     else:
-        res = comment_llm.analyze(text, score)
+        res = comment_llm.analyze(text, score, side)
     if ca is None:
         ca = CommentAnalysis(answer_id=answer.id, text_hash=h)
         db.add(ca)
@@ -175,7 +177,7 @@ def load_series(db: Session, program: Program) -> list[PairSeries]:
             start_period=pair.start_period,
         )
         for side, period, a in texts:
-            ca = ensure_comment_analysis(db, a, ps.overall(side, period))
+            ca = ensure_comment_analysis(db, a, ps.overall(side, period), side)
             ps.comments.append(
                 Comment(
                     side=side,
