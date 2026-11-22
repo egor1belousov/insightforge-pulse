@@ -1,9 +1,14 @@
-.PHONY: up down logs model seed demo demo-fast test lint fixtures template validate dev admin
+.PHONY: up up-gpu down logs model seed demo demo-fast test lint fixtures template validate dev admin
 
 up:
 	docker compose up -d --build
 	$(MAKE) model
 	@echo "Готово: http://localhost:8000"
+
+up-gpu:
+	docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+	$(MAKE) model
+	@echo "Готово (Ollama на GPU): http://localhost:8000"
 
 down:
 	docker compose down

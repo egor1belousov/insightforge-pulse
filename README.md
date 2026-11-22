@@ -32,7 +32,7 @@ make demo                 # чистая база + демо-данные (2–3
 Ollama по умолчанию работает на процессоре. Для NVIDIA (нужен `nvidia-container-toolkit`):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+make up-gpu      # вместо make up
 ```
 
 Если Ollama недоступна, приложение продолжает работать на запасных правилах — в интерфейсе это помечено.
