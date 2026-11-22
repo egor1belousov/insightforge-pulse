@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     login_attempts_per_minute: int = 5
     demo_mode: bool = True
     demo_password: str = "pulse-demo-2026"
+    upload_dir: str = "uploads"
+    max_upload_mb: int = 20
 
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:3b-instruct"
