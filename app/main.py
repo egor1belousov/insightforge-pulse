@@ -1,19 +1,41 @@
 """Точка входа приложения «Пульс адаптации»."""
 
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.api import auth, imports, llm, programs
+from app.api import auth, forms, imports, llm, programs
 from app.core.settings import get_settings
 from app.db.session import engine
 from app.web import pages
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Запускает опрос Яндекс/Google Forms, если коннекторы включены."""
+    from app.db.models import Program
+    from app.db.session import SessionLocal
+    from app.services.forms import connectors
+
+    task = None
+    if connectors.yandex_enabled() or connectors.google_enabled():
+        with SessionLocal() as db:
+            prog = db.query(Program).order_by(Program.id).first()
+        if prog:
+            task = asyncio.create_task(connectors.poller(prog.id))
+    yield
+    if task:
+        task.cancel()
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title="Пульс адаптации",
     version="0.1.0",
     docs_url="/docs" if settings.is_dev else None,
@@ -24,6 +46,7 @@ app.include_router(auth.router)
 app.include_router(programs.router)
 app.include_router(imports.router)
 app.include_router(llm.router)
+app.include_router(forms.router)
 app.include_router(pages.router)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static")
 

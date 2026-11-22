@@ -118,3 +118,8 @@ def import_page(
     request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user_optional)
 ) -> Response:
     return app_page(request, db, user, "app/import.html", "forms", ("hr",))
+
+
+@router.get("/survey/{token}")
+def survey_page(request: Request, token: str) -> Response:
+    return render(request, "survey.html", token=token)
