@@ -1,0 +1,4 @@
+{% extends "app/layout.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}<div id="page" class="col" style="gap:18px"><p class="muted">Загружаем…</p></div>{% endblock %}
+{% block page_scripts %}<script>window.PULSE_DEMO = {{ demo | tojson }};</script>{% if 'forms' == 'me' %}<script src="/static/js/survey.js?v={{ asset_v }}"></script>{% endif %}<script src="/static/js/forms.js?v={{ asset_v }}"></script>{% endblock %}
