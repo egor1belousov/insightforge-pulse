@@ -16,6 +16,8 @@ T = TypeVar("T", bound=BaseModel)
 PROMPTS = Path(__file__).parent / "prompts"
 
 _status: dict = {"ok": None, "checked": 0.0, "latency": None, "error": None}
+# temperature=0: одинаковый запрос даёт одинаковый ответ, поэтому повтор отдаём из памяти
+_cache: dict[tuple[str, str, str, str], BaseModel] = {}
 
 
 def prompt(name: str, **values: str) -> str:
@@ -45,11 +47,14 @@ def chat_json[T: BaseModel](
     if not enabled():
         return None
     s = get_settings()
+    key = (s.ollama_model, schema.__name__, system, user)
+    if key in _cache:
+        return _cache[key].model_copy(deep=True)
     body = {
         "model": s.ollama_model,
         "stream": False,
         "format": schema.model_json_schema(),
-        "options": {"temperature": 0, "num_ctx": 4096},
+        "options": {"temperature": 0, "num_ctx": 4096, "num_predict": s.llm_max_tokens},
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
     }
     for attempt in range(retries + 1):
@@ -61,7 +66,11 @@ def chat_json[T: BaseModel](
             _status.update(
                 ok=True, checked=time.monotonic(), latency=round(time.monotonic() - t0, 2), error=None
             )
-            return schema.model_validate(json.loads(content))
+            result = schema.model_validate(json.loads(content))
+            if len(_cache) >= s.llm_cache_size:
+                _cache.pop(next(iter(_cache)))
+            _cache[key] = result
+            return result.model_copy(deep=True)
         except (httpx.HTTPError, KeyError) as e:
             _status.update(ok=False, checked=time.monotonic(), error=str(e)[:200])
             log.warning("Ollama недоступна: %s", e)

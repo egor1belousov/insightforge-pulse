@@ -1,0 +1,53 @@
+# Сервер с GPU, домен и HTTPS. Запуск: make prod-up (настройки — в .env, образец deploy/env.prod.example)
+services:
+  db:
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+
+  ollama:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_NUM_PARALLEL: "4"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      APP_ENV: prod
+      DATABASE_URL: postgresql+psycopg://pulse:${POSTGRES_PASSWORD}@db:5432/pulse
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?задайте DOMAIN в .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
