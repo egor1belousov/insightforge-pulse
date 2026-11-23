@@ -1,0 +1,17 @@
+# Служба пользователя на ноутбуке: держит SSH-туннель до сервера-посредника.
+# Пока служба работает, ноутбук не засыпает и не реагирует на закрытие крышки.
+[Unit]
+Description=Пульс адаптации: туннель до сервера-посредника
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:idle:handle-lid-switch --who=pulse --why="Пульс доступен по домену" \
+  /usr/bin/ssh -NT -i %h/.ssh/pulse_tunnel \
+  -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+  -o StrictHostKeyChecking=accept-new -o BatchMode=yes \
+  -R 127.0.0.1:8000:127.0.0.1:8000 tunnel@@EDGE@
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

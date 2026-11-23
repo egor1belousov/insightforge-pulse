@@ -39,7 +39,9 @@ make up-gpu      # вместо make up
 
 ### Сервер и домен
 
-Сервер с GPU, HTTPS и прогрев модели: `make deploy HOST=root@IP`, подробно — `docs/DEPLOY.md`.
+Два варианта, подробно — `docs/DEPLOY.md`:
+- ноутбук + дешёвый VPS с доменом: `make laptop-up`, `make edge-setup`, `make tunnel-install`;
+- сервер с GPU: `make deploy HOST=root@IP`.
 
 ## Без интернета
 Приложение не обращается в интернет: шрифты, стили, скрипты и модель — локальные. Наружу ходят только коннекторы Яндекс/Google Forms, если они включены. Перед выездом выполните `make up` с интернетом (скачать образы и модель).

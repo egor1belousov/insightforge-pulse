@@ -1,0 +1,32 @@
+# Приложение на ноутбуке, доступ из интернета через сервер-посредник (см. docs/DEPLOY.md, «Ноутбук + VPS»).
+# Порт 8000 открыт только для 127.0.0.1 — снаружи его видит лишь SSH-туннель.
+services:
+  ollama:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      OLLAMA_KEEP_ALIVE: "-1"
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_NUM_PARALLEL: "2"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  db:
+    restart: unless-stopped
+
+  app:
+    restart: unless-stopped
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    environment:
+      APP_ENV: prod
+    command:
+      - sh
+      - -c
+      - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips '*'
+    depends_on:
+      ollama:
+        condition: service_healthy
