@@ -1,0 +1,20 @@
+# Сервер-посредник: HTTPS для домена, запросы уходят по SSH-туннелю на ноутбук
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8000 {
+		# SSE: события отдаём сразу, без буферизации
+		flush_interval -1
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# Ноутбук выключен или туннель оборван — понятная страница вместо ошибки 502
+	handle_errors {
+		@down expression `{err.status_code} in [502, 503, 504]`
+		header @down Content-Type "text/html; charset=utf-8"
+		respond @down "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'><title>Пульс адаптации</title><body style='font-family:system-ui;max-width:32rem;margin:20vh auto;padding:0 1rem;color:#222'><h1>Пульс адаптации</h1><p>Демо-стенд сейчас выключен. Попробуйте чуть позже.</p></body>" 503
+	}
+}

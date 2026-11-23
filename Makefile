@@ -1,5 +1,6 @@
 .PHONY: up up-gpu down logs model seed demo demo-fast test lint fixtures template validate dev admin \
-	prod-up prod-down prod-logs prod-warm prod-demo deploy
+	prod-up prod-down prod-logs prod-warm prod-demo deploy \
+	laptop-up laptop-down edge-setup tunnel-install tunnel-status tunnel-stop
 
 up:
 	docker compose up -d --build
@@ -77,3 +78,35 @@ deploy:
 	@test -n "$(HOST)" || (echo "Укажите сервер: make deploy HOST=root@1.2.3.4" && exit 1)
 	rsync -az --delete --exclude-from=deploy/rsync-exclude ./ $(HOST):$(PROD_DIR)/
 	ssh $(HOST) 'cd $(PROD_DIR) && make prod-up'
+
+# ---------- ноутбук + сервер-посредник (см. docs/DEPLOY.md) ----------
+LAPTOP = docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.laptop.yml
+
+laptop-up:
+	$(LAPTOP) up -d --build --remove-orphans
+	m=$$(grep -s ^OLLAMA_MODEL= .env | cut -d= -f2); $(LAPTOP) exec -T ollama ollama pull $${m:-qwen2.5:3b-instruct}
+	$(LAPTOP) exec -T app python -m app.services.llm.warm
+	@echo "Готово: http://localhost:8000 (снаружи — через туннель)"
+
+laptop-down:
+	$(LAPTOP) down
+
+edge-setup:
+	@test -n "$(EDGE)" -a -n "$(DOMAIN)" || (echo "Укажите: make edge-setup EDGE=1.2.3.4 DOMAIN=pulse.example.ru" && exit 1)
+	scp -i ~/.ssh/pulse_admin -o StrictHostKeyChecking=accept-new -r deploy/edge root@$(EDGE):/root/pulse-edge
+	ssh -i ~/.ssh/pulse_admin root@$(EDGE) "bash /root/pulse-edge/edge-setup.sh $(DOMAIN) '$$(cat ~/.ssh/pulse_tunnel.pub)'"
+
+tunnel-install:
+	@test -n "$(EDGE)" || (echo "Укажите сервер: make tunnel-install EDGE=1.2.3.4" && exit 1)
+	mkdir -p ~/.config/systemd/user
+	sed 's/@EDGE@/$(EDGE)/' deploy/edge/pulse-tunnel.service > ~/.config/systemd/user/pulse-tunnel.service
+	systemctl --user daemon-reload
+	systemctl --user enable --now pulse-tunnel
+	loginctl enable-linger $$USER
+	@sleep 3; systemctl --user --no-pager status pulse-tunnel | head -5
+
+tunnel-status:
+	systemctl --user --no-pager status pulse-tunnel | head -12
+
+tunnel-stop:
+	systemctl --user disable --now pulse-tunnel
