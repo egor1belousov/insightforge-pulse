@@ -18,3 +18,8 @@
 		respond @down "<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'><title>Пульс адаптации</title><body style='font-family:system-ui;max-width:32rem;margin:20vh auto;padding:0 1rem;color:#222'><h1>Пульс адаптации</h1><p>Демо-стенд сейчас выключен. Попробуйте чуть позже.</p></body>" 503
 	}
 }
+
+# www.домен → домен (нужна A-запись www на тот же IP)
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
