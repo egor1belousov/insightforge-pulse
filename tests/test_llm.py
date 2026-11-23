@@ -112,3 +112,31 @@ def test_positive_text_cannot_get_high_anxiety_from_model(fake_llm) -> None:
     fake_llm["CommentAnswer"] = {"topics": [], "tone": 0.5, "anxiety_level": "заметная", "quote": ""}
     r = tasks.analyze_comment("Всё хорошо, многому учусь", 0.85)
     assert r["anxiety"] <= 0.3 and r["contradiction"] < 0.6
+
+
+def test_repeated_request_served_from_cache(monkeypatch) -> None:
+    from app.core.settings import Settings
+
+    calls = []
+
+    class Resp:
+        def raise_for_status(self) -> None:
+            pass
+
+        def json(self) -> dict:
+            return {"message": {"content": '{"text": "Встреча втроём"}'}}
+
+    def fake_post(url, json, timeout):
+        calls.append(json)
+        return Resp()
+
+    monkeypatch.setattr(client, "get_settings", lambda: Settings(llm_enabled=True))
+    monkeypatch.setattr(client.httpx, "post", fake_post)
+    monkeypatch.setattr(client, "_cache", {})
+    monkeypatch.setitem(client._status, "ok", None)
+    first = client.chat_json("s", "u", tasks.TextAnswer)
+    first.text = "изменено снаружи"
+    second = client.chat_json("s", "u", tasks.TextAnswer)
+    assert second.text == "Встреча втроём" and len(calls) == 1
+    client.chat_json("s", "другой вопрос", tasks.TextAnswer)
+    assert len(calls) == 2

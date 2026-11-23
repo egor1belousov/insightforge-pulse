@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:3b-instruct"
     ollama_timeout: float = 60.0
     llm_enabled: bool = True
+    llm_cache_size: int = 512
+    llm_max_tokens: int = 1024
 
     smtp_host: str = ""
     smtp_port: int = 587
