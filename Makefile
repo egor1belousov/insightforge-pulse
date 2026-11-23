@@ -91,10 +91,12 @@ laptop-up:
 laptop-down:
 	$(LAPTOP) down
 
+EDGE_USER ?= root
+
 edge-setup:
-	@test -n "$(EDGE)" -a -n "$(DOMAIN)" || (echo "Укажите: make edge-setup EDGE=1.2.3.4 DOMAIN=pulse.example.ru" && exit 1)
-	scp -i ~/.ssh/pulse_admin -o StrictHostKeyChecking=accept-new -r deploy/edge root@$(EDGE):/root/pulse-edge
-	ssh -i ~/.ssh/pulse_admin root@$(EDGE) "bash /root/pulse-edge/edge-setup.sh $(DOMAIN) '$$(cat ~/.ssh/pulse_tunnel.pub)'"
+	@test -n "$(EDGE)" -a -n "$(DOMAIN)" || (echo "Укажите: make edge-setup EDGE=1.2.3.4 DOMAIN=pulse.example.ru [EDGE_USER=pulse]" && exit 1)
+	scp -i ~/.ssh/pulse_admin -o StrictHostKeyChecking=accept-new -r deploy/edge $(EDGE_USER)@$(EDGE):pulse-edge
+	ssh -i ~/.ssh/pulse_admin $(EDGE_USER)@$(EDGE) "sudo bash pulse-edge/edge-setup.sh $(DOMAIN) '$$(cat ~/.ssh/pulse_tunnel.pub)'"
 
 tunnel-install:
 	@test -n "$(EDGE)" || (echo "Укажите сервер: make tunnel-install EDGE=1.2.3.4" && exit 1)

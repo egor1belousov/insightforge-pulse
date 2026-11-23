@@ -20,6 +20,7 @@
 ssh-keygen -t ed25519 -N "" -f ~/.ssh/pulse_admin    # ключ администратора, если ещё нет
 ssh-keygen -t ed25519 -N "" -f ~/.ssh/pulse_tunnel   # ключ туннеля
 make edge-setup EDGE=IP DOMAIN=pulse.example.ru       # подготовить сервер: Caddy, пользователь tunnel, ufw
+                                                      # если root недоступен (Yandex Cloud): добавить EDGE_USER=<логин>
 make laptop-up                                        # приложение на ноутбуке, модель прогрета
 make tunnel-install EDGE=IP                           # туннель как служба пользователя, переподключается сам
 ```
