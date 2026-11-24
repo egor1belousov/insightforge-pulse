@@ -1,0 +1,158 @@
+{
+ "GET /api/auth/invites": {
+  "roles": [
+   "hr"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/dashboard": {
+  "roles": [
+   "hr",
+   "lead"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/dashboard/layout": {
+  "roles": [
+   "hr",
+   "lead"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/events": {
+  "roles": [
+   "hr",
+   "lead"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/forms/mailing": {
+  "roles": [
+   "hr"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/integrations": {
+  "roles": [
+   "hr"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/learn": {
+  "roles": [
+   "hr",
+   "intern",
+   "lead",
+   "mentor"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/llm/status": {
+  "roles": [
+   "hr"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": [
+   "check=true"
+  ]
+ },
+ "GET /api/me": {
+  "roles": [
+   "intern",
+   "mentor"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/notifications": {
+  "roles": [
+   "hr",
+   "intern",
+   "lead",
+   "mentor"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/pairs/{id}/diagnosis": {
+  "roles": [
+   "hr",
+   "lead"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": [
+   "topic=all&scale=raw"
+  ]
+ },
+ "GET /api/program/overview": {
+  "roles": [
+   "hr"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/settings": {
+  "roles": [
+   "hr"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ },
+ "GET /api/telegram/link": {
+  "roles": [
+   "intern",
+   "mentor"
+  ],
+  "status": [
+   200
+  ],
+  "payload": "",
+  "query": []
+ }
+}

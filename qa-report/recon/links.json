@@ -1,0 +1,229 @@
+{
+ "https://mgtspulse.ru/": [
+  "anon /",
+  "anon /login",
+  "anon /register"
+ ],
+ "https://mgtspulse.ru/login": [
+  "anon /",
+  "anon /register"
+ ],
+ "https://mgtspulse.ru/demo/hr": [
+  "anon /"
+ ],
+ "https://mgtspulse.ru/demo/lead": [
+  "anon /"
+ ],
+ "https://mgtspulse.ru/demo/mentor": [
+  "anon /"
+ ],
+ "https://mgtspulse.ru/demo/intern": [
+  "anon /"
+ ],
+ "https://mgtspulse.ru/register": [
+  "anon /login"
+ ],
+ "https://mgtspulse.ru/dashboard": [
+  "hr /dashboard",
+  "hr /forms",
+  "hr /learn",
+  "hr /pairs",
+  "hr /pairs?id=2195",
+  "hr /pairs?id=2196",
+  "hr /pairs?id=2196&tab=act",
+  "hr /pairs?id=2199",
+  "hr /pairs?id=2199&tab=act",
+  "hr /pairs?id=2200",
+  "hr /pairs?id=2200&tab=act",
+  "hr /pairs?id=2201",
+  "hr /pairs?id=2201&tab=act",
+  "hr /program",
+  "hr /settings",
+  "lead /dashboard",
+  "lead /learn",
+  "lead /pairs",
+  "lead /pairs?id=2203",
+  "lead /pairs?id=2204",
+  "lead /pairs?id=2207",
+  "lead /pairs?id=2208",
+  "lead /pairs?id=2211"
+ ],
+ "https://mgtspulse.ru/pairs": [
+  "hr /dashboard",
+  "hr /forms",
+  "hr /learn",
+  "hr /pairs",
+  "hr /pairs?id=2195",
+  "hr /pairs?id=2196",
+  "hr /pairs?id=2196&tab=act",
+  "hr /pairs?id=2199",
+  "hr /pairs?id=2199&tab=act",
+  "hr /pairs?id=2200",
+  "hr /pairs?id=2200&tab=act",
+  "hr /pairs?id=2201",
+  "hr /pairs?id=2201&tab=act",
+  "hr /program",
+  "hr /settings",
+  "lead /dashboard",
+  "lead /learn",
+  "lead /pairs",
+  "lead /pairs?id=2203",
+  "lead /pairs?id=2204",
+  "lead /pairs?id=2207",
+  "lead /pairs?id=2208",
+  "lead /pairs?id=2211"
+ ],
+ "https://mgtspulse.ru/program": [
+  "hr /dashboard",
+  "hr /forms",
+  "hr /learn",
+  "hr /pairs",
+  "hr /pairs?id=2195",
+  "hr /pairs?id=2196",
+  "hr /pairs?id=2196&tab=act",
+  "hr /pairs?id=2199",
+  "hr /pairs?id=2199&tab=act",
+  "hr /pairs?id=2200",
+  "hr /pairs?id=2200&tab=act",
+  "hr /pairs?id=2201",
+  "hr /pairs?id=2201&tab=act",
+  "hr /program",
+  "hr /settings"
+ ],
+ "https://mgtspulse.ru/forms": [
+  "hr /dashboard",
+  "hr /forms",
+  "hr /learn",
+  "hr /pairs",
+  "hr /pairs?id=2195",
+  "hr /pairs?id=2196",
+  "hr /pairs?id=2196&tab=act",
+  "hr /pairs?id=2199",
+  "hr /pairs?id=2199&tab=act",
+  "hr /pairs?id=2200",
+  "hr /pairs?id=2200&tab=act",
+  "hr /pairs?id=2201",
+  "hr /pairs?id=2201&tab=act",
+  "hr /program",
+  "hr /settings"
+ ],
+ "https://mgtspulse.ru/learn": [
+  "hr /dashboard",
+  "hr /forms",
+  "hr /learn",
+  "hr /pairs",
+  "hr /pairs?id=2195",
+  "hr /pairs?id=2196",
+  "hr /pairs?id=2196&tab=act",
+  "hr /pairs?id=2199",
+  "hr /pairs?id=2199&tab=act",
+  "hr /pairs?id=2200",
+  "hr /pairs?id=2200&tab=act",
+  "hr /pairs?id=2201",
+  "hr /pairs?id=2201&tab=act",
+  "hr /program",
+  "hr /settings",
+  "intern /learn",
+  "intern /me",
+  "lead /dashboard",
+  "lead /learn",
+  "lead /pairs",
+  "lead /pairs?id=2203",
+  "lead /pairs?id=2204",
+  "lead /pairs?id=2207",
+  "lead /pairs?id=2208",
+  "lead /pairs?id=2211",
+  "mentor /learn",
+  "mentor /me"
+ ],
+ "https://mgtspulse.ru/settings": [
+  "hr /dashboard",
+  "hr /forms",
+  "hr /learn",
+  "hr /pairs",
+  "hr /pairs?id=2195",
+  "hr /pairs?id=2196",
+  "hr /pairs?id=2196&tab=act",
+  "hr /pairs?id=2199",
+  "hr /pairs?id=2199&tab=act",
+  "hr /pairs?id=2200",
+  "hr /pairs?id=2200&tab=act",
+  "hr /pairs?id=2201",
+  "hr /pairs?id=2201&tab=act",
+  "hr /program",
+  "hr /settings"
+ ],
+ "https://mgtspulse.ru/pairs?id=2199&tab=act": [
+  "hr /dashboard",
+  "hr /pairs?id=2199&tab=act"
+ ],
+ "https://mgtspulse.ru/pairs?id=2196&tab=act": [
+  "hr /dashboard",
+  "hr /pairs?id=2196&tab=act"
+ ],
+ "https://mgtspulse.ru/pairs?id=2200&tab=act": [
+  "hr /dashboard",
+  "hr /pairs?id=2200&tab=act"
+ ],
+ "https://mgtspulse.ru/pairs?id=2201&tab=act": [
+  "hr /dashboard",
+  "hr /pairs?id=2201&tab=act"
+ ],
+ "https://mgtspulse.ru/pairs?id=2199": [
+  "hr /dashboard",
+  "hr /pairs?id=2199",
+  "hr /program"
+ ],
+ "https://mgtspulse.ru/pairs?id=2196": [
+  "hr /dashboard",
+  "hr /pairs?id=2196",
+  "hr /program"
+ ],
+ "https://mgtspulse.ru/pairs?id=2200": [
+  "hr /dashboard",
+  "hr /pairs?id=2200",
+  "hr /program"
+ ],
+ "https://mgtspulse.ru/pairs?id=2201": [
+  "hr /dashboard",
+  "hr /pairs?id=2201",
+  "hr /program"
+ ],
+ "https://mgtspulse.ru/pairs?id=2195": [
+  "hr /dashboard",
+  "hr /pairs?id=2195",
+  "hr /program"
+ ],
+ "https://mgtspulse.ru/pairs?id=2207": [
+  "lead /dashboard",
+  "lead /pairs?id=2207"
+ ],
+ "https://mgtspulse.ru/pairs?id=2204": [
+  "lead /dashboard",
+  "lead /pairs?id=2204"
+ ],
+ "https://mgtspulse.ru/pairs?id=2208": [
+  "lead /dashboard",
+  "lead /pairs?id=2208"
+ ],
+ "https://mgtspulse.ru/pairs?id=2211": [
+  "lead /dashboard",
+  "lead /pairs?id=2211"
+ ],
+ "https://mgtspulse.ru/pairs?id=2203": [
+  "lead /dashboard",
+  "lead /pairs?id=2203"
+ ],
+ "https://mgtspulse.ru/me": [
+  "intern /learn",
+  "intern /me",
+  "mentor /learn",
+  "mentor /me"
+ ],
+ "https://t.me/mgts_pulse_bot?start=Huer9KdrsdIi": [
+  "mentor /me"
+ ],
+ "https://t.me/mgts_pulse_bot?start=mNbgxxPkRSu8": [
+  "intern /me"
+ ]
+}

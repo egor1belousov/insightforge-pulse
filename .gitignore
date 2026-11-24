@@ -11,3 +11,10 @@ reports_out/
 .claude/settings.local.json
 responsive-audit/before/
 responsive-audit/after/
+qa-report/tests/node_modules/
+qa-report/test-results/
+qa-report/playwright-report/
+qa-report/screenshots/pages/
+qa-report/*.json
+!qa-report/a11y-details.json
+qa-report/run.log
