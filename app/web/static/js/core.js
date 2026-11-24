@@ -62,7 +62,7 @@
   // Сегментный прогресс: части по статусам, крупная цифра и легенда.
   // parts: [{ n, cls: "ok" | "warn" | "bad" | "idle", label }]
   function progress(parts, opt) {
-    const o = opt || {}, total = parts.reduce((a, p) => a + p.n, 0) || 1, ok = parts[0].n, pct = Math.round((ok / total) * 100);
+    const o = opt || {}, total = parts.reduce((a, p) => a + p.n, 0), ok = parts[0].n, pct = total ? Math.round((ok / total) * 100) : 0;
     let h = '<div class="prog' + (o.big ? " big" : "") + '">';
     h += '<div class="prog-top"><span class="prog-num">' + (o.title ? '<span class="prog-title">' + esc(o.title) + "</span>" : ok + '<span class="prog-of"> / ' + total + "</span>") + '</span><span class="prog-pct">' + pct + "%</span></div>";
     h += '<div class="prog-track" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + ok + '">';

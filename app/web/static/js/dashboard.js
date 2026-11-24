@@ -141,7 +141,14 @@
   }
   const WIDGETS = { kpi: W_kpi, tasks: W_tasks, signals: W_signals, map: W_map, trend: W_trend, system: W_system, forms: W_forms, feed: W_feed, health: W_health };
 
+  // Новый поток без пар: вместо пустых виджетов — шаги запуска
+  function renderEmpty() {
+    const steps = [["01 / Люди", "Пригласите стажёров и наставников", "Ссылки-приглашения на почту или загрузка списка из Excel.", "/program?tab=people", "К участникам"], ["02 / Пары", "Соберите пары", "ИИ подскажет наставника по подразделению и нагрузке.", "/program", "К парам"], ["03 / Анкета", "Проверьте анкету", "Анкеты скопированы из прошлого потока — их можно поправить в конструкторе.", "/forms?tab=build", "К конструктору"], ["04 / Каналы", "Настройте рассылку", "Почта, Telegram и автонапоминания — один раз на весь поток.", "/forms", "К рассылкам"]];
+    box.innerHTML = '<section class="hero"><div class="sphere orb" data-orb="dots" data-size="560" aria-hidden="true"></div><p class="tagline">Новый поток</p><h1>Поток готов к запуску</h1><p class="sub">Пар пока нет — сигналы появятся после первой анкеты. Четыре шага, чтобы начать.</p></section><div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + steps.map(([k, t, d, u, b]) => '<a class="card col start-step" href="' + u + '" style="text-decoration:none;color:inherit"><p class="eyebrow">' + esc(k) + '</p><b style="font-size:17px">' + esc(t) + '</b><p class="small muted" style="line-height:1.5">' + esc(d) + '</p><span class="btn ghost small" style="margin-top:auto;align-self:flex-start;padding-left:0">' + esc(b) + " →</span></a>").join("") + "</div>";
+  }
+
   function render() {
+    if (!D.pairs.length && dept === "all") { renderEmpty(); return; }
     const ms = D.months, idx = Math.max(0, ms.findIndex((x) => x.p === D.period));
     let h = '<section class="hero"><div class="sphere orb" data-orb="lattice" data-size="560" aria-hidden="true"></div><div class="row between" style="align-items:flex-end;gap:18px"><div style="max-width:680px"><p class="tagline">' + esc(D.tag) + "</p><h1>" + esc(D.headline) + '</h1><p class="sub">' + esc(D.sub) + '</p></div><div class="row">';
     h += '<button type="button" class="btn on-dark" id="rep-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg>Отчёт</button>';
