@@ -112,5 +112,8 @@ def test_demo_button_and_yandex_webhook(demo, monkeypatch) -> None:
     assert r.status_code == 200 and r.json()["ok"], r.text
     with SessionLocal() as db:  # доставка прошла в фоне после ответа
         part = db.query(Participant).filter(Participant.external_id == "С-103").one()
-        assert db.query(Response).filter(Response.participant_id == part.id, Response.source == "yandex").count() == 1
+        assert (
+            db.query(Response).filter(Response.participant_id == part.id, Response.source == "yandex").count()
+            == 1
+        )
     get_settings.cache_clear()
