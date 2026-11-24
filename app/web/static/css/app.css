@@ -384,7 +384,10 @@ a.signal-btn:hover, .tile:hover { transform: translateY(-2px); box-shadow: 0 10p
 }
 
 /* ---------- интеграции ---------- */
-.int-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--soft); flex-wrap: wrap; }
+.int-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--soft); }
+.int-act { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; justify-self: end; }
+.int-act .btn { min-width: 112px; }
+@media (max-width: 520px) { .int-row { grid-template-columns: 38px minmax(0, 1fr); } .int-act { grid-column: 2; justify-self: start; } }
 .int-ic { width: 38px; height: 38px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; background: var(--accent-soft); color: var(--accent-ink); flex-shrink: 0; font-family: var(--font-head); }
 .stepper .icon-btn { width: 30px; height: 30px; min-width: 30px; border-radius: 9px; }
 .stepper .icon-btn[disabled] { opacity: .4; cursor: not-allowed; }
