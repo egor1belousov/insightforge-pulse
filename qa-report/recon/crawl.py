@@ -39,7 +39,7 @@ def main() -> None:
                     errors.append(f"{m.type}: {m.text}"[:200]) if m.type in ("error", "warning") else None
                 ),
             )
-            pg.on("pageerror", lambda e: errors.append(f"pageerror: {e}"[:200]))
+            pg.on("pageerror", lambda e, errors=errors: errors.append(f"pageerror: {e}"[:200]))
 
             def on_resp(r, role=role):
                 u = urlparse(r.url)
