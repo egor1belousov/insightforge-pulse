@@ -390,14 +390,11 @@ a.signal-btn:hover, .tile:hover { transform: translateY(-2px); box-shadow: 0 10p
 .stepper .icon-btn[disabled] { opacity: .4; cursor: not-allowed; }
 
 /* ---------- потоки ---------- */
-.stream-btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: var(--card); color: var(--ink); border-radius: 12px; padding: 4px 10px 4px 12px; min-height: 40px; cursor: pointer; max-width: 260px; }
-.stream-btn b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.stream-pop { left: 0; right: auto; width: 380px; }
+
 .stream-item[aria-current="true"] { background: var(--accent-soft); }
-@media (max-width: 640px) { .stream-btn .xs { display: none; } .stream-pop { width: 92vw; } }
+
 .start-step:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(14,20,36,0.08); border-color: var(--accent); }
-@media (max-width: 1560px) { .search-btn { min-width: 0; } .search-btn .label-text { display: none; } }
-@media (max-width: 1200px) { .stream-btn .xs { display: none; } }
+
 
 /* ---------- обучение: каталог, конструктор, читалка, тест ---------- */
 .mat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
@@ -439,3 +436,52 @@ a.signal-btn:hover, .tile:hover { transform: translateY(-2px); box-shadow: 0 10p
 .rev-opt.right { color: var(--ok-fg); font-weight: 600; } .rev-opt.wrong { color: var(--both-fg); text-decoration: line-through; }
 .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- шапка в одну строку: бренд с потоком, разделы, справа поиск, тема, уведомления, профиль ---------- */
+.topbar .inner { flex-wrap: nowrap; gap: 14px; }
+.brand-wrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; position: relative; }
+.brand-text { display: flex; flex-direction: column; gap: 1px; position: relative; min-width: 0; }
+.brand-text .name { font-family: var(--font-head); font-weight: 600; font-size: 14px; white-space: nowrap; color: var(--ink); text-decoration: none; line-height: 1.2; }
+.brand-sub { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.stream-btn { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 0; margin: 0; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1.3; max-width: 190px; border-radius: 6px; }
+.stream-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stream-btn:hover, .stream-btn[aria-expanded="true"] { color: var(--accent); }
+.stream-btn svg { flex-shrink: 0; transition: transform .2s var(--ease); }
+.stream-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.stream-pop { left: -38px; right: auto; top: 44px; width: 380px; }
+.topbar nav.seg { flex: 0 1 auto; min-width: 0; }
+.search-btn { min-width: 0; width: 40px; padding: 0; justify-content: center; flex-shrink: 0; }
+.search-btn .label-text, .search-btn kbd { display: none; }
+.topbar .theme-toggle, .topbar .icon-btn, .topbar .profile-btn { flex-shrink: 0; }
+@media (min-width: 1500px) {
+  .search-btn { width: auto; min-width: 210px; padding: 0 12px; justify-content: flex-start; }
+  .search-btn .label-text, .search-btn kbd { display: inline; }
+}
+@media (max-width: 1100px) { .profile-btn > .small { display: none; } .profile-btn { padding-right: 3px; } }
+@media (max-width: 900px) {
+  .topbar .inner { flex-wrap: wrap; }
+  .topbar nav.seg { order: 10; flex: 1 1 100%; }
+  .stream-pop { width: min(380px, 92vw); left: 0; }
+}
+.stream-item { align-items: center; }
+.stream-item .chip { align-self: center; flex-shrink: 0; }
+@media (max-width: 520px) {
+  .topbar .inner { gap: 8px; row-gap: 10px; }
+  .brand-text .name { font-size: 12px; }
+  .stream-btn { max-width: 130px; font-size: 11px; }
+  .topbar .grow { display: none; }
+  .brand-wrap { flex: 1 1 auto; min-width: 0; }
+  .search-btn, .topbar .icon-btn { width: 36px; height: 36px; min-width: 36px; min-height: 36px; flex: 0 0 36px; padding: 0; }
+  .profile-btn { min-height: 36px; padding: 2px; }
+  .profile-btn .avatar { width: 30px; height: 30px; }
+  .topbar .theme-toggle .tt-track { width: 54px; height: 30px; padding: 0 7px; }
+  .topbar .theme-toggle .tt-knob { width: 22px; height: 22px; }
+  .topbar .theme-toggle[aria-checked="true"] .tt-knob { transform: translateX(24px); }
+}
+@media (max-width: 520px) {
+  .topbar .inner { gap: 6px; }
+  .brand-wrap { gap: 8px; }
+  .topbar .theme-toggle .tt-track { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 12px; }
+  .topbar .theme-toggle .tt-knob { display: none; }
+  .topbar .theme-toggle[aria-checked="false"] .tt-moon, .topbar .theme-toggle[aria-checked="true"] .tt-sun { display: none; }
+}
