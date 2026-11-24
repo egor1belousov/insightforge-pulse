@@ -38,7 +38,7 @@ KINDS: dict[str, dict] = {
                 "org_id",
                 "ID организации",
                 False,
-                "Для форм Яндекс 360 для бизнеса: tracker.yandex.ru/admin/orgs. Для личной формы оставьте пустым",
+                "Форма организации: Yandex Cloud — ID вида bpf… (консоль → Организация), Яндекс 360 — число из tracker.yandex.ru/admin/orgs",
             ),
         ],
     },
@@ -306,8 +306,10 @@ def disconnect(db: Session, org: int, kind: str) -> None:
 def yandex_headers(cfg: dict) -> dict:
     """Заголовки API Яндекс Форм: OAuth и, для формы организации, X-Org-Id."""
     h = {"Authorization": f"OAuth {cfg['token']}"}
-    if cfg.get("org_id"):
-        h["X-Org-Id"] = str(cfg["org_id"])
+    org = str(cfg.get("org_id") or "").strip()
+    if org:
+        # организация Yandex Cloud (Identity Hub) — идентификатор вида bpf…, Яндекс 360 — числовой
+        h["X-Org-Id" if org.isdigit() else "X-Cloud-Org-Id"] = org
     return h
 
 
