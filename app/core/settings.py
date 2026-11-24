@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     llm_cache_size: int = 512
     llm_max_tokens: int = 1024
 
+    public_url: str = "http://localhost:8000"
+    telegram_bot: bool = True
+    auto_reminders: bool = True
+    reminders_check_minutes: int = 15
+
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""

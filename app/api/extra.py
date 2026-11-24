@@ -13,7 +13,6 @@ from app.core.settings import DEFAULT_ANALYTICS, get_settings
 from app.db.models import (
     Answer,
     AppSetting,
-    Notification,
     Pair,
     Participant,
     Program,
@@ -26,7 +25,7 @@ from app.db.models import (
     Response as Resp,
 )
 from app.db.session import get_db
-from app.services import reports
+from app.services import integrations, notify, reminders, reports, telegram
 from app.services.analytics.service import analytics_config, month_name, recompute_program
 from app.services.dashboard import dashboard, periods_of
 from app.services.forms import connectors
@@ -62,7 +61,6 @@ MIRROR_TEMPLATES = {
         "mentor": "Понятны ли вам перспективы после стажировки?",
     },
 }
-CHANNELS = {"email": True, "tg": True, "site": True, "auto": True}
 RULES = {
     "health": {"on": True, "value": 50},
     "delta": {"on": True, "value": 0.4},
@@ -205,7 +203,15 @@ def mailing(user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(
         "rows": rows,
         "got": sum(1 for r in rows if r["status"] == "заполнено"),
         "total": len(rows),
-        "channels": _setting(db, prog.organization_id, "channels", CHANNELS),
+        "channels": notify.setting(db, prog.organization_id, "channels", notify.CHANNELS),
+        "connected": {
+            "email": integrations.connected(db, prog.organization_id, "smtp"),
+            "tg": integrations.connected(db, prog.organization_id, "telegram"),
+            "site": True,
+        },
+        "tg_linked": len(telegram.chats(db, prog.organization_id)),
+        "reminders": notify.setting(db, prog.organization_id, "reminders", notify.REMINDERS),
+        "plan": notify.next_step(db, prog, period, reminders.pending(db, prog, period), date.today()),
     }
 
 
@@ -252,30 +258,53 @@ def remind(
     period = periods_of(db, prog)[-1]
     key = f"reminded_{period}"
     done = set(_setting(db, prog.organization_id, key, []))
-    channels = _setting(db, prog.organization_id, "channels", CHANNELS)
+    channels = notify.setting(db, prog.organization_id, "channels", notify.CHANNELS)
+    results = {}
     for ext in data.ids:
         p = (
             db.query(Participant)
             .filter(Participant.program_id == prog.id, Participant.external_id == ext)
             .first()
         )
-        if p and p.user_id:
-            db.add(
-                Notification(
-                    user_id=p.user_id,
-                    title=f"Заполните анкету за {month_name(prog, period)}",
-                    sub="Напоминание HR",
-                    link="/me",
-                    level="warn",
-                )
+        if p:
+            results[ext] = notify.deliver(
+                db, prog, p, f"Заполните анкету за {month_name(prog, period)}", "Напоминание HR", channels
             )
-        done.add(ext)
+            done.add(ext)
     _save(db, prog.organization_id, key, sorted(done))
-    via = (
-        ", ".join(n for k, n in (("email", "почта"), ("tg", "Telegram"), ("site", "сайт")) if channels.get(k))
-        or "сайт"
-    )
-    return {"ok": True, "message": f"Напоминание отправлено: {', '.join(data.ids)} ({via})"}
+    return {"ok": True, "results": results, "message": f"{', '.join(data.ids)}: " + notify.summary(results)}
+
+
+class RemindersIn(BaseModel):
+    on: bool
+    first_days: int
+    second_days: int
+    max: int
+    escalate_days: int
+    quiet_from: int
+    quiet_to: int
+    channels: dict[str, bool]
+
+
+@router.put("/forms/reminders")
+def set_reminders(
+    data: RemindersIn, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)
+) -> dict:
+    prog = _program(db, user)
+    v = data.model_dump()
+    v["first_days"] = max(1, min(27, v["first_days"]))
+    v["second_days"] = max(v["first_days"] + 1, min(28, v["second_days"]))
+    v["max"] = max(0, min(2, v["max"]))
+    v["escalate_days"] = max(v["second_days"], min(28, v["escalate_days"]))
+    v["quiet_from"], v["quiet_to"] = v["quiet_from"] % 24, v["quiet_to"] % 24
+    v["channels"] = {k: bool(v["channels"].get(k)) for k in notify.CHANNELS}
+    notify.save(db, prog.organization_id, "reminders", v)
+    return v
+
+
+@router.post("/forms/reminders/run")
+def run_reminders(user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)) -> dict:
+    return reminders.run_program(db, _program(db, user))
 
 
 @router.put("/forms/channels")
@@ -283,8 +312,8 @@ def set_channels(
     data: dict, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)
 ) -> dict:
     prog = _program(db, user)
-    value = CHANNELS | {k: bool(v) for k, v in data.items() if k in CHANNELS}
-    _save(db, prog.organization_id, "channels", value)
+    value = notify.CHANNELS | {k: bool(v) for k, v in data.items() if k in notify.CHANNELS}
+    notify.save(db, prog.organization_id, "channels", value)
     return value
 
 
@@ -495,7 +524,7 @@ def get_settings_api(user: User = Depends(require_role(*HR_ONLY)), db: Session =
         "rules": rules,
         "preview": _preview(db, prog, user, rules),
         "llm": client.status(),
-        "forms": connectors.status(),
+        "forms": connectors.status(db, user.organization_id),
         "demo": get_settings().demo_mode,
         "users": [
             {"email": public_email(u.email), "name": u.name, "role": u.role}

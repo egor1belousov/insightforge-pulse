@@ -23,6 +23,7 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       APP_ENV: prod
+      PUBLIC_URL: ${PUBLIC_URL:-https://mgtspulse.ru}
     command:
       - sh
       - -c
