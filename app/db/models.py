@@ -324,6 +324,11 @@ class Course(Base):
     duration: Mapped[str] = mapped_column(String(40), default="")
     file_name: Mapped[str | None] = mapped_column(String(300))
     content: Mapped[str] = mapped_column(Text, default="")
+    # свободные темы («Оборудование», «Охрана труда»); topic — необязательная связь с темой анкеты
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    # разделы материала: [{kind: text|list|tip|check, title, body}]
+    sections: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="published")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -335,6 +340,8 @@ class Test(Base):
     title: Mapped[str] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(String(20), default="draft")
     generated_by: Mapped[str] = mapped_column(String(80), default="rules")
+    pass_score: Mapped[float] = mapped_column(Float, default=0.7)
+    difficulty: Mapped[str] = mapped_column(String(20), default="medium")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     questions: Mapped[list["TestQuestion"]] = relationship(
@@ -351,6 +358,10 @@ class TestQuestion(Base):
     correct: Mapped[int] = mapped_column(Integer, default=0)
     explanation: Mapped[str] = mapped_column(Text, default="")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # single — один верный, multi — несколько верных, truefalse — верно/неверно
+    qtype: Mapped[str] = mapped_column(String(12), default="single")
+    correct_multi: Mapped[list] = mapped_column(JSON, default=list)
+    source: Mapped[str] = mapped_column(Text, default="")
 
 
 class Assignment(Base):
@@ -362,5 +373,7 @@ class Assignment(Base):
     progress: Mapped[int] = mapped_column(Integer, default=0)
     score: Mapped[float | None] = mapped_column(Float)
     answers: Mapped[dict] = mapped_column(JSON, default=dict)
+    sections_done: Mapped[list] = mapped_column(JSON, default=list)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
     reason: Mapped[str] = mapped_column(String(300), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

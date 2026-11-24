@@ -17,6 +17,7 @@ from app.services.accounts import ensure_topics
 from app.services.analytics.service import recompute_program
 from app.services.ingest.persist import persist
 from app.services.ingest.pipeline import Record
+from app.services.learning import split_sections
 from ml.synth import COMMENT_INTERN, COMMENT_MENTOR, INTERN_QUESTIONS, MENTOR_QUESTIONS, PAIRS, to_scale
 
 SCALE = (1, 10)
@@ -224,6 +225,19 @@ COURSES = [
         "Критерии аттестации сообщаются не позднее чем за месяц до окончания программы.",
     ),
 ]
+TAGS = {
+    "Как принимать обратную связь": ["Коммуникация"],
+    "Тайм-менеджмент стажёра": ["Планирование"],
+    "Оборудование ШПД": ["Оборудование", "Охрана труда"],
+    "Когда не хватает времени на стажёра": ["Наставничество"],
+    "Карта развития в МГТС": ["Карьера"],
+}
+SECTIONED = {
+    "Оборудование ШПД": "Подготовка волокна\nПеред сваркой с волокна снимают защитное покрытие, очищают его спиртом и выполняют скол скалывателем.\n"
+    "Проверка соединения\nКачество сварного соединения проверяют рефлектометром.\n"
+    "Если нет схемы\nЕсли на объекте нет схемы разводки, работу останавливают и связываются с наставником.\n"
+    "Маркировка и выезд\n- Оптический кросс маркируют по схеме подразделения.\n- Перед выездом проверяют комплект инструмента по чек-листу.",
+}
 TEST_Q = [
     (
         "Что нужно сделать с волокном перед сваркой?",
@@ -264,6 +278,8 @@ def seed_learning(db: Session, prog: Program) -> None:
             duration=dur,
             content=text,
             description=text.split(". ")[0] + ".",
+            sections=split_sections(SECTIONED.get(title, text)),
+            tags=TAGS.get(title, []),
         )
         db.add(c)
         db.flush()
