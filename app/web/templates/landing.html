@@ -14,7 +14,7 @@
         <p style="margin:0 0 16px;color:#8EA0D0;font-size:12px;letter-spacing:.12em">ПРОГРАММА СТАЖИРОВОК · МГТС</p>
         <h1>Два взгляда на одну стажировку</h1>
         <p class="lead">Стажёр и наставник раз в месяц отвечают на короткую анкету. Мы следим, как расходятся их оценки, объясняем почему — и подсказываем HR действие, пока проблему ещё можно решить разговором.</p>
-        <div class="row" style="gap:12px;margin-top:30px"><a class="cta" href="/login">Войти в систему <span>→</span></a>{% if demo %}<a class="demo-link" href="/login?as=hr">Открыть демо без ввода пароля</a>{% endif %}</div>
+        <div class="row" style="gap:12px;margin-top:30px"><a class="cta" href="/login">Войти в систему <span>→</span></a>{% if demo %}<a class="demo-link" href="/demo/hr">Открыть демо без ввода пароля</a>{% endif %}</div>
       </div>
       <div class="preview">
         <div class="row between"><p style="color:#9AA6C6;font-size:12px;letter-spacing:.08em">ПАРА П-02 · САМОСТОЯТЕЛЬНОСТЬ</p><span class="chip warn">расхождение растёт</span></div>
@@ -56,7 +56,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:28px">
       {% for r in roles %}
       <div class="tile"><p class="xs" style="color:#0A7CD6;font-weight:600;letter-spacing:.06em">{{ r.tag }}</p><h3 style="font-size:18px">{{ r.label }}</h3><p class="small muted grow" style="line-height:1.55">{{ r.desc }}</p>
-        <a href="/login{% if demo %}?as={{ r.key }}{% endif %}" style="border-top:1px solid #E3E6EC;padding-top:14px;font-size:13px;font-weight:600;color:#0E1424;min-height:44px;display:flex;justify-content:space-between;text-decoration:none">Войти как {{ r.short }} <span>→</span></a></div>
+        <a href="{% if demo %}/demo/{{ r.key }}{% else %}/login{% endif %}" style="border-top:1px solid #E3E6EC;padding-top:14px;font-size:13px;font-weight:600;color:#0E1424;min-height:44px;display:flex;justify-content:space-between;text-decoration:none">Войти как {{ r.short }} <span>→</span></a></div>
       {% endfor %}
     </div>
   </section>

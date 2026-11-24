@@ -72,6 +72,8 @@
     return { back, close };
   }
 
+  Pulse.modal = modal;
+
   window.PulseReport = {
     open(dept) {
       const st = { fmt: "pdf", period: "all", parts: { sum: true, pairs: true, signals: true, actions: true } };

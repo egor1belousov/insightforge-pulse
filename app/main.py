@@ -18,10 +18,13 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Запускает опрос Яндекс/Google Forms, если коннекторы включены."""
+    """Запускает опрос Яндекс/Google Forms и запас песочниц демо."""
     from app.db.models import Program
     from app.db.session import SessionLocal
+    from app.services import sandbox
     from app.services.forms import connectors
+
+    stop = sandbox.start_worker() if sandbox.enabled() and settings.demo_pool_size > 0 else None
 
     task = None
     if connectors.yandex_enabled() or connectors.google_enabled():
@@ -32,6 +35,8 @@ async def lifespan(_: FastAPI):
     yield
     if task:
         task.cancel()
+    if stop:
+        stop.set()
 
 
 app = FastAPI(

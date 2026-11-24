@@ -65,8 +65,8 @@
     let h = '<div class="widgets"><nav class="card col" style="flex:1 1 240px;padding:10px;gap:2px" aria-label="Статьи справочника">' + G.map((x, i) => '<button type="button" data-g="' + i + '" aria-current="' + (i === guideI) + '" style="text-align:left;border:0;border-radius:10px;padding:10px;min-height:44px;cursor:pointer;background:' + (i === guideI ? "#F3F5F9" : "transparent") + ';font-size:14px"><span class="head" style="font-size:12px;color:#0A7CD6;margin-right:8px">0' + (i + 1) + "</span>" + esc(x.title) + "</button>").join("") + "</nav>";
     h += '<article class="card col" style="flex:3 1 480px;gap:12px"><p class="eyebrow">0' + (guideI + 1) + '</p><h2 class="head" style="font-size:24px">' + esc(g.title) + "</h2>";
     let table = [];
-    const flush = () => { if (table.length) { h += '<div class="scroll-x"><table class="tbl">' + table.filter((r) => !/^\|[-| ]+\|$/.test(r)).map((r, i) => "<tr>" + r.split("|").slice(1, -1).map((c) => (i ? "<td>" : "<th>") + esc(c.trim().replace(/\\\|/g, "|")) + (i ? "</td>" : "</th>")).join("") + "</tr>").join("") + "</table></div>"; table = []; } };
-    const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
+    const flush = () => { if (table.length) { h += '<div class="scroll-x"><table class="tbl">' + table.filter((r) => !/^\|[-| ]+\|$/.test(r)).map((r, i) => "<tr>" + r.split(/(?<!\\)\|/).slice(1, -1).map((c) => (i ? "<td>" : "<th>") + md(c.trim().replace(/\\\|/g, "|")) + (i ? "</td>" : "</th>")).join("") + "</tr>").join("") + "</table></div>"; table = []; } };
+    const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, '<code class="formula">$1</code>');
     g.blocks.forEach((b) => {
       if (b.startsWith("|")) { table.push(b); return; }
       flush();

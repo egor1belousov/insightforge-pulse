@@ -11,6 +11,7 @@ from app.core.deps import HR_ONLY, STAFF, current_user, require_role
 from app.core.security import make_survey_token
 from app.core.settings import DEFAULT_ANALYTICS, get_settings
 from app.db.models import (
+    Answer,
     AppSetting,
     Notification,
     Pair,
@@ -192,6 +193,7 @@ def mailing(user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(
                     if r
                     else ("напомнили" if p.external_id in reminded else "не заполнено"),
                     "source": r.source if r else None,
+                    "response_id": r.id if r else None,
                     "link": f"/survey/{make_survey_token(p.id)}",
                 }
             )
@@ -203,6 +205,37 @@ def mailing(user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(
         "got": sum(1 for r in rows if r["status"] == "заполнено"),
         "total": len(rows),
         "channels": _setting(db, prog.organization_id, "channels", CHANNELS),
+    }
+
+
+@router.get("/forms/responses/{response_id}")
+def response_view(
+    response_id: int, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)
+) -> dict:
+    """Заполненная анкета участника — только для чтения."""
+    prog = _program(db, user)
+    r = db.get(Resp, response_id)
+    if r is None or r.participant.program_id != prog.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Анкета не найдена.")
+    answers = db.query(Answer).filter(Answer.response_id == r.id).order_by(Answer.question_id).all()
+    return {
+        "external_id": r.participant.external_id,
+        "side": r.participant.side,
+        "month": month_name(prog, r.period),
+        "source": r.source,
+        "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
+        "answers": [
+            {
+                "question": a.question.text if a.question else "Вопрос удалён",
+                "qtype": a.question.qtype if a.question else "scale",
+                "topic": a.question.topic.name if a.question and a.question.topic else None,
+                "value": a.value_raw,
+                "min": a.question.scale_min if a.question else None,
+                "max": a.question.scale_max if a.question else None,
+                "text": a.text,
+            }
+            for a in answers
+        ],
     }
 
 

@@ -30,7 +30,8 @@ def test_app_works_without_ollama() -> None:
     assert t == {"topic": "load", "confidence": 0.9, "mirror": 1, "fallback": True}
     assert tasks.classify_table("наставники.xlsx", "Лист1", ["ID", "Оценка"])["side"] == "mentor"
     sig = [{"type": "growth", "description": "Расхождение растёт: +0.08", "cause": "Нужна встреча втроём."}]
-    assert tasks.explain_signal("П-02", sig) == {"text": "Нужна встреча втроём.", "fallback": True}
+    e = tasks.explain_signal("П-02", sig)
+    assert e["fallback"] and "Нужна встреча втроём." in e["text"] and "0.08" not in e["text"]
     a = tasks.meeting_agenda("П-02", sig)
     assert a["fallback"] and len(a["items"]) == 2
     o = tasks.meeting_outcomes(
@@ -72,6 +73,8 @@ def test_explain_rejects_invented_numbers(fake_llm) -> None:
         }
     ]
     fake_llm["TextAnswer"] = {"text": "Разрыв составляет 47%, это критично."}
+    assert tasks.explain_signal("П-02", sig)["fallback"]
+    fake_llm["TextAnswer"] = {"text": "Расхождение составляет 0.19, это сигнал."}
     assert tasks.explain_signal("П-02", sig)["fallback"]
     fake_llm["TextAnswer"] = {
         "text": "Наставник уже 3 месяца видит спад, стажёр — нет. Начните с встречи втроём."

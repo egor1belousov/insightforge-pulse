@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     login_attempts_per_minute: int = 5
     demo_mode: bool = True
     demo_password: str = "pulse-demo-2026"
+    demo_sandbox: bool = True
+    demo_pool_size: int = 2
+    demo_sandbox_hours: int = 6
     upload_dir: str = "uploads"
     max_upload_mb: int = 20
 

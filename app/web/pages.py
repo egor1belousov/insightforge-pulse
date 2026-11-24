@@ -1,5 +1,6 @@
 """Серверные страницы интерфейса (Jinja2). Данные страницы получают из API."""
 
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -49,7 +50,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "1"
+ASSET_V = "2"
 
 
 def home_for(user: User) -> str:
@@ -86,7 +87,8 @@ def app_page(
     me = {
         "id": user.id,
         "name": user.name,
-        "email": user.email,
+        # в песочнице демо почта вида hr+токен@pulse.demo — показываем обычную
+        "email": re.sub(r"\+[a-z0-9]+@", "@", user.email),
         "role": user.role,
         "program_id": user.program_id,
         "role_label": ROLE_LABEL[user.role],
@@ -111,6 +113,22 @@ def login_page(request: Request, user: User | None = Depends(current_user_option
         demo_accounts=DEMO_ACCOUNTS,
         demo_password=s.demo_password if s.demo_mode else "",
     )
+
+
+@router.get("/demo/{role}")
+def demo_enter(role: str, request: Request, db: Session = Depends(get_db)) -> Response:
+    """Вход в демо одной кнопкой: роль в песочнице этого браузера, даже если уже вошли под другой."""
+    from app.api.auth import demo_session
+    from app.services import sandbox
+
+    if not get_settings().demo_mode or role not in sandbox.DEMO_ROLES:
+        return RedirectResponse("/login", status_code=303)
+    if not sandbox.enabled():
+        return RedirectResponse(f"/login?as={role}", status_code=303)
+    resp = RedirectResponse("/", status_code=303)
+    user = demo_session(request, resp, db, role)
+    resp.headers["location"] = home_for(user)
+    return resp
 
 
 @router.get("/import")

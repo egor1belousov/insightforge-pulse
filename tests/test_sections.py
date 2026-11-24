@@ -86,3 +86,15 @@ def test_mailing_remind_and_outcomes(demo) -> None:  # noqa: F811
     assert hr.post(f"/api/pairs/{pid}/outcome", json={"outcome": "stay"}, headers=h).status_code == 200
     cands = hr.get(f"/api/participants/{o['unpaired'][0]['id']}/candidates").json()
     assert cands[0]["external_id"] == "Н-206"
+
+
+def test_hr_sees_filled_answers_read_only(demo) -> None:  # noqa: F811
+    hr = login("hr@pulse.demo")
+    rows = hr.get("/api/forms/mailing").json()["rows"]
+    filled = next(r for r in rows if r["response_id"])
+    assert next(r for r in rows if r["status"] != "заполнено")["response_id"] is None
+    v = hr.get(f"/api/forms/responses/{filled['response_id']}").json()
+    assert v["external_id"] == filled["external_id"] and len(v["answers"]) >= 5
+    assert any(a["value"] for a in v["answers"]) and v["answers"][0]["max"] == 10
+    assert login("lead@pulse.demo").get(f"/api/forms/responses/{filled['response_id']}").status_code == 403
+    assert hr.get("/api/forms/responses/999999").status_code == 404

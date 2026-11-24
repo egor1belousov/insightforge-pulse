@@ -168,16 +168,46 @@ def _numbers(s: str) -> set[str]:
     return {n.replace(",", ".").lstrip("0") or "0" for n in NUM_RE.findall(s)}
 
 
+PLAIN_FACT = {
+    "level": "Стажёр и наставник уже несколько месяцев по-разному оценивают одну и ту же работу.",
+    "growth": "С каждым месяцем их оценки расходятся всё сильнее: они всё хуже понимают друг друга.",
+    "lag": "Одна сторона уже замечает спад, а другая пока считает, что всё в порядке.",
+    "words": "Человек ставит высокие баллы, но в комментарии пишет о тревоге.",
+    "decline": "И стажёр, и наставник с начала программы оценивают стажировку всё ниже.",
+    "missing": "Кто-то из пары не заполнил анкету за этот месяц.",
+    "program": "Похожая проблема сразу у нескольких пар — дело в программе, а не в людях.",
+}
+JARGON_RE = re.compile(r"\d[.,]\d|Δ|%|расхожден|дельт|индекс|сигнал|шкал|наклон|коэффициент|метрик", re.I)
+QUOTE_RE = re.compile(r"«([^»]{8,})»\s*$")
+
+
+def _plain(s: dict) -> str:
+    """Факт сигнала обычными словами, без чисел и терминов аналитики."""
+    text = PLAIN_FACT.get(s["type"], s.get("cause") or "")
+    q = QUOTE_RE.search(s.get("description", ""))
+    if s["type"] == "words" and q:
+        text += f" Цитата: «{q.group(1)}»."
+    if s["type"] == "lag":
+        text = s["description"].split(":")[0].rstrip(";") + ". " + text
+    return text
+
+
 def explain_signal(pair: str, signals: list[dict]) -> dict:
-    """Причина сигналов простыми словами по фактам из БД. Новые числа запрещены."""
-    facts = "\n".join(f"- {s['type']}: {s['description']}" for s in signals)
-    rules_text = " ".join(dict.fromkeys(s["cause"] for s in signals if s.get("cause")))
+    """Что происходит в паре — так, чтобы понял человек без аналитики. Чисел и терминов нет."""
     if not signals:
-        return {"text": "Сигналов нет: оценки сторон согласованы.", "fallback": True}
-    res = chat_json(_system(), prompt("explain_signal", pair=pair, facts=facts), TextAnswer, timeout=40)
+        return {"text": "Всё спокойно: стажёр и наставник оценивают стажировку одинаково.", "fallback": True}
+    facts = "\n".join(f"- {_plain(s)}" for s in signals)
+    advice = next((s["cause"] for s in signals if s.get("cause") and s["type"] != "missing"), "")
+    rules_text = " ".join(dict.fromkeys(_plain(s) for s in signals)) + (
+        f" Что сделать: {advice}" if advice else ""
+    )
+    res = chat_json(
+        _system(), prompt("explain_signal", pair=pair, facts=facts, advice=advice), TextAnswer, timeout=40
+    )
     if res is not None and res.text.strip():
-        if _numbers(res.text) <= _numbers(facts) | {"1", "2", "3"}:
-            return {"text": res.text.strip(), "fallback": False}
+        text = res.text.strip()
+        if not JARGON_RE.search(text) and _numbers(text) <= _numbers(facts) | {"1", "2", "3"}:
+            return {"text": text, "fallback": False}
     return {"text": rules_text, "fallback": True}
 
 
