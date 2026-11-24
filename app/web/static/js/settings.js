@@ -9,7 +9,37 @@
   const fmt = (v) => (Number.isInteger(v) ? String(v) : Number(v).toFixed(2));
   const sw = (on, attrs) => '<button type="button" role="switch" aria-checked="' + on + '" ' + attrs + ' style="width:44px;height:26px;border-radius:999px;border:0;background:' + (on ? "var(--accent)" : "var(--line-3)") + ';position:relative;cursor:pointer;flex-shrink:0"><span style="position:absolute;top:3px;left:' + (on ? 21 : 3) + 'px;width:20px;height:20px;border-radius:50%;background:var(--card)"></span></button>';
 
-  async function load() { S = await api("GET", "/api/settings"); render(); refreshLlm(); }
+  let I = null;
+  async function load() { [S, I] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/integrations")]); render(); refreshLlm(); const t = location.hash.match(/^#int-(\w+)/); if (t && I[t[1]]) openInt(t[1]); }
+  const ICONS = { yandex: "Я", google: "G", smtp: "@", telegram: "✈" };
+  function intCard() {
+    let h = '<p class="eyebrow">Интеграции</p>';
+    h += Object.values(I).map((x) => '<div class="int-row" id="int-' + x.kind + '"><span class="int-ic">' + ICONS[x.kind] + '</span><span class="grow col" style="gap:3px"><b class="small">' + esc(x.title) + '</b><span class="xs muted">' + esc(x.connected && x.info ? x.info : x.desc) + '</span></span><span class="chip ' + (x.connected ? "ok" : "") + '">' + (x.connected ? "подключено" : "не подключено") + '</span><button type="button" class="btn small" data-int="' + x.kind + '">' + (x.connected ? "Настроить" : "Подключить") + "</button></div>").join("");
+    return h + '<p class="xs muted">Токены хранятся на сервере компании и не показываются целиком. Каждое подключение проверяется настоящим запросом к сервису.</p>';
+  }
+  function openInt(kind) {
+    const x = I[kind];
+    const fields = x.fields.map((f) => '<div class="field"><label for="if-' + f.key + '">' + esc(f.label) + '</label>' + (f.key === "credentials" ? '<textarea class="input" id="if-' + f.key + '" rows="4" placeholder="' + esc(f.value || "{ \"client_id\": … }") + '"></textarea>' : '<input class="input" id="if-' + f.key + '" ' + (f.secret ? 'type="password" autocomplete="off" placeholder="' + esc(f.value || "") + '"' : 'value="' + esc(f.value || "") + '"') + ">") + '<span class="xs muted">' + esc(f.help) + "</span></div>").join("");
+    let extra = "";
+    if (kind === "yandex" && x.webhook) extra += '<div class="col" style="gap:6px;background:var(--soft-3);border-radius:12px;padding:12px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">ВЕБХУК ДЛЯ ФОРМЫ</span><code class="formula" style="word-break:break-all">' + esc(x.webhook) + '</code><span class="xs muted">В настройках формы: Интеграции → HTTP-запрос → POST на этот адрес, тело — JSON с ответами. Без вебхука ответы забираются по API каждые 15 секунд.</span><div class="row" style="gap:8px"><button type="button" class="btn small" data-copy-hook>Скопировать адрес</button><button type="button" class="btn small" data-sync="yandex">Загрузить ответы сейчас</button></div></div>';
+    if (kind === "google" && x.connected) extra += '<button type="button" class="btn small" data-sync="google" style="align-self:flex-start">Загрузить ответы сейчас</button>';
+    if (kind === "telegram" && x.connected) extra += '<div class="col" style="gap:6px;background:var(--soft-3);border-radius:12px;padding:12px"><span class="small"><b>Как подключаются участники.</b> У каждого стажёра и наставника в разделе «Моя стажировка» есть кнопка «Подключить Telegram» — личная ссылка на бота ' + esc(x.info || "") + '. После этого напоминания приходят в чат, а анкету можно заполнить кнопками прямо там.</span></div>';
+    const logh = x.log.length ? '<div class="col" style="gap:4px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">ЖУРНАЛ</span>' + x.log.map((e) => '<span class="xs" style="color:' + (e.ok ? "var(--muted)" : "var(--both-fg)") + '">' + esc(e.at.replace("T", " ").slice(5, 16)) + " · " + esc(e.text) + "</span>").join("") + "</div>" : "";
+    const m = Pulse.modal('<div class="modal" role="dialog" aria-modal="true" aria-labelledby="int-t"><div class="row between nowrap"><div class="row nowrap" style="gap:12px"><span class="int-ic">' + ICONS[kind] + '</span><div><h2 class="head" id="int-t" style="font-size:20px">' + esc(x.title) + '</h2><p class="xs muted">' + esc(x.desc) + '</p></div></div><button type="button" class="icon-btn" data-close aria-label="Закрыть">×</button></div>' + (x.connected ? '<div class="form-ok">Подключено' + (x.info ? ": " + esc(x.info) : "") + (x.source === "env" ? " (из .env сервера)" : "") + "</div>" : "") + fields + '<div id="int-err" class="form-error" hidden></div><div class="row" style="gap:8px"><button type="button" class="btn primary" id="int-save">' + (x.connected ? "Проверить и сохранить" : "Проверить и подключить") + "</button>" + (x.connected && x.source !== "env" ? '<button type="button" class="btn danger" id="int-off">Отключить</button>' : "") + "</div>" + extra + logh + "</div>");
+    const q = (sel) => m.back.querySelector(sel);
+    q("#int-save").addEventListener("click", async () => {
+      const b = q("#int-save"), data = {};
+      x.fields.forEach((f) => { data[f.key] = q("#if-" + f.key).value; });
+      b.disabled = true; b.textContent = "Проверяем…"; q("#int-err").hidden = true;
+      try { I[kind] = await api("POST", "/api/integrations/" + kind, data); toast(x.title + ": подключено — " + (I[kind].info || "")); m.close(); render(); }
+      catch (e) { q("#int-err").textContent = e.message; q("#int-err").hidden = false; b.disabled = false; b.textContent = "Проверить и подключить"; }
+    });
+    const off = q("#int-off");
+    if (off) off.addEventListener("click", async () => { I[kind] = await api("DELETE", "/api/integrations/" + kind); toast(x.title + " отключено"); m.close(); render(); });
+    const hook = q("[data-copy-hook]");
+    if (hook) hook.addEventListener("click", async () => { try { await navigator.clipboard.writeText(x.webhook); toast("Адрес вебхука скопирован"); } catch (e) { toast(x.webhook); } });
+    m.back.querySelectorAll("[data-sync]").forEach((b) => b.addEventListener("click", async () => { b.disabled = true; try { const r = await api("POST", "/api/integrations/" + b.dataset.sync + "/sync"); toast(r.message); } catch (e) { toast(e.message); } b.disabled = false; }));
+  }
   // Сведения о модели берём у Ollama при открытии экрана и раз в 30 секунд
   async function refreshLlm() {
     try { S.llm = await api("GET", "/api/llm/status?check=true"); } catch (e) { return; }
@@ -44,9 +74,7 @@
   function render() {
     const L = S.llm;
     let h = '<section class="hero"><div class="sphere orb" data-orb="mesh" data-size="560" aria-hidden="true"></div><p class="tagline">Настройки</p><h1>Интеграции, оповещения, доступ</h1><p class="sub">Пороги и веса — стартовые: согласуем с HR и калибруем на исторических данных. Любое изменение сразу пересчитывает сигналы.</p></section>';
-    h += '<div class="widgets"><section class="card col" style="flex:1 1 360px"><p class="eyebrow">Интеграции</p>';
-    h += [["Яндекс Формы", "Ответы анкеты по API и вебхуку", S.forms.yandex.enabled], ["Google Forms", "Альтернатива Яндекс Формам", S.forms.google.enabled], ["Рабочая почта", "Приглашения, напоминания, сводки", false], ["Telegram-бот", "Напоминания и ответы в чате", false]].map(([n, d, on]) => '<div class="list-row"><span class="grow small"><b>' + n + '</b><br><span class="xs muted">' + d + '</span></span><span class="chip ' + (on ? "ok" : "") + '">' + (on ? "подключено" : "не подключено") + "</span></div>").join("");
-    h += '<p class="xs muted">Подключение — токены в .env (docs/FORMS.md). Без SMTP ссылки приглашений показываются HR на экране.</p></section>';
+    h += '<div class="widgets"><section class="card col" style="flex:1 1 360px">' + intCard() + "</section>";
     h += '<section class="card col" style="flex:1 1 360px" id="llm-card">' + llmCard(L) + "</section></div>";
     h += '<section class="card col"><p class="eyebrow">Правила оповещений · превью «сработало бы сейчас»</p>';
     RULES.forEach(([k, n, step, ch]) => {
@@ -66,6 +94,7 @@
   function bind() {
     const $ = (s) => box.querySelector(s);
     bindLlm();
+    box.querySelectorAll("[data-int]").forEach((b) => b.addEventListener("click", () => openInt(b.dataset.int)));
     box.querySelectorAll("[data-rule-on]").forEach((b) => b.addEventListener("click", async () => { const k = b.dataset.ruleOn; S = await api("PUT", "/api/settings", { rules: { [k]: { ...S.rules[k], on: !S.rules[k].on } } }); render(); }));
     box.querySelectorAll("[data-rule]").forEach((b) => b.addEventListener("click", async () => { const k = b.dataset.rule, v = Math.max(0, Math.round((S.rules[k].value + Number(b.dataset.d)) * 100) / 100); S = await api("PUT", "/api/settings", { rules: { [k]: { ...S.rules[k], value: v } } }); render(); }));
     box.querySelectorAll("[data-an]").forEach((b) => b.addEventListener("click", async () => { const k = b.dataset.an, v = Math.max(0, Math.round((S.analytics[k] + Number(b.dataset.d)) * 100) / 100); S = await api("PUT", "/api/settings", { analytics: { [k]: v } }); toast("Сигналы пересчитаны с новым порогом"); render(); }));

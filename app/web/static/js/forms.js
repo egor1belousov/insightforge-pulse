@@ -3,9 +3,10 @@
   "use strict";
   const { api, esc, toast } = window.Pulse;
   const box = document.getElementById("page");
-  let tab = new URLSearchParams(location.search).get("tab") || "send", M = null, Q = null, S = null, side = "intern", sug = null, pv = "mail";
+  let tab = new URLSearchParams(location.search).get("tab") || "send", M = null, Q = null, S = null, side = "intern", sug = null;
   const TOPICS = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Поддержка", load: "Нагрузка", feedback: "Обратная связь", growth: "Перспективы" };
-  const CH = [["email", "Письмо на рабочую почту", "Ссылка на анкету, вход без пароля"], ["tg", "Telegram-бот", "Можно ответить прямо в чате"], ["site", "Уведомление на сайте", "Колокольчик и карточка «Заполнить анкету»"], ["auto", "Автонапоминания", "Через 2 и 4 дня, если анкета не заполнена"]];
+  const CH = [["email", "Письмо на рабочую почту", "Ссылка на анкету, вход без пароля", "smtp"], ["tg", "Telegram-бот", "Анкета прямо в чате, оценки кнопками", "telegram"], ["site", "Уведомление на сайте", "Колокольчик и карточка «Заполнить анкету»", null]];
+  const CH_SHORT = { email: "почта", tg: "Telegram", site: "сайт" };
 
   async function load() {
     if (tab === "send") M = await api("GET", "/api/forms/mailing");
@@ -32,12 +33,37 @@
       h += "<tr><td><b>" + esc(r.external_id) + "</b></td><td>" + esc(r.pair) + "</td><td>" + (r.side === "intern" ? "Стажёр" : "Наставник") + " · " + r.questions + ' вопр.</td><td><span class="chip ' + cls + '">' + esc(r.status) + '</span></td><td class="row nowrap" style="gap:6px">' + (r.status !== "заполнено" ? '<button type="button" class="btn small" data-remind="' + esc(r.external_id) + '">Напомнить</button>' : "") + (r.response_id ? '<button type="button" class="btn ghost small" data-answers="' + r.response_id + '">Ответы</button>' : '<button type="button" class="btn ghost small" data-copy="' + esc(location.origin + r.link) + '" title="Личная ссылка участника — можно отправить вручную">Ссылка</button>') + "</td></tr>";
     });
     h += '</tbody></table></div><p class="xs muted">Следующая рассылка — в начале месяца «' + esc(M.next) + "». Ссылка на анкету личная, открывается с телефона без пароля.</p></section>";
-    h += '<section class="card col" style="flex:1 1 300px"><p class="eyebrow">Каналы</p>' + CH.map(([k, n, d]) => '<div class="row nowrap" style="gap:12px;padding:6px 0"><span class="grow"><b class="small">' + n + '</b><br><span class="xs muted">' + d + "</span></span>" + sw(!!M.channels[k], 'data-ch="' + k + '" aria-label="' + n + '"') + "</div>").join("");
-    h += '<p class="eyebrow" style="margin-top:8px">Предпросмотр</p><div class="seg">' + [["mail", "Письмо"], ["tg", "Telegram"], ["phone", "Телефон"]].map(([k, n]) => '<button type="button" data-pv="' + k + '" aria-pressed="' + (pv === k) + '">' + n + "</button>").join("") + "</div>";
-    const msg = pv === "mail" ? "<b>Тема:</b> Анкета за " + esc(M.month) + " — 2 минуты<br><br>Здравствуйте! Раз в месяц мы спрашиваем, как идёт стажировка. Ваши ответы видит только HR.<br><br><u>Заполнить анкету →</u>" : pv === "tg" ? "🤖 Пульс адаптации: пора заполнить анкету за " + esc(M.month) + ". Ответьте прямо здесь — 6 вопросов, 2 минуты." : "Пульс адаптации · анкета за " + esc(M.month) + ". Откройте ссылку: оценки кнопками 1–10 и комментарий по желанию.";
-    h += '<div style="background:var(--soft-3);border:1px solid var(--line);border-radius:14px;padding:14px" class="small">' + msg + "</div></section></div>";
+    h += '<div class="col" style="flex:1 1 340px;gap:16px">' + channelsCard() + remindersCard() + "</div></div>";
     return h;
   }
+  // Каналы: куда вообще доставляем анкету и напоминания
+  function channelsCard() {
+    let h = '<section class="card col"><p class="eyebrow">Каналы доставки</p><p class="xs muted">Куда уходят приглашения и напоминания HR. Неподключённый канал пропускается — в итоге рассылки видно, что не ушло.</p>';
+    CH.forEach(([k, n, d, integ]) => {
+      const con = M.connected[k], on = !!M.channels[k];
+      const st = con ? '<span class="chip ok">подключено' + (k === "tg" ? " · чатов " + M.tg_linked : "") + "</span>" : '<a class="chip warn" href="/settings#int-' + integ + '" style="text-decoration:none">не подключено — настроить</a>';
+      h += '<div class="row nowrap" style="gap:12px;padding:10px 0;border-top:1px solid var(--soft)"><span class="grow col" style="gap:4px"><b class="small">' + n + '</b><span class="xs muted">' + d + "</span>" + (k === "site" ? "" : "<span>" + st + "</span>") + "</span>" + sw(on, 'data-ch="' + k + '" aria-label="' + n + '"') + "</div>";
+    });
+    return h + "</section>";
+  }
+  // Автонапоминания: расписание, тихие часы, эскалация HR
+  function remindersCard() {
+    const R = M.reminders, step = (k, v, unit, min, max) => '<span class="row nowrap stepper" style="gap:6px"><button type="button" class="icon-btn" data-rs="' + k + '" data-d="-1" aria-label="Меньше"' + (v <= min ? " disabled" : "") + '>−</button><b style="min-width:58px;text-align:center" class="small">' + v + (unit[0] === ":" ? "" : " ") + unit + '</b><button type="button" class="icon-btn" data-rs="' + k + '" data-d="1" aria-label="Больше"' + (v >= max ? " disabled" : "") + ">+</button></span>";
+    let h = '<section class="card col"><div class="row between nowrap"><p class="eyebrow">Автонапоминания</p>' + sw(R.on, 'data-r-on aria-label="Автонапоминания"') + "</div>";
+    if (!R.on) return h + '<p class="small muted">Выключены: напоминает только HR вручную.</p></section>';
+    const row = (label, ctl, hint) => '<div class="row between" style="gap:10px;padding:8px 0;border-top:1px solid var(--soft)"><span class="col" style="gap:2px"><span class="small">' + label + "</span>" + (hint ? '<span class="xs muted">' + hint + "</span>" : "") + "</span>" + ctl + "</div>";
+    h += row("Первое напоминание", step("first_days", R.first_days, "дн.", 1, 27), "после начала месяца");
+    h += row("Второе напоминание", step("second_days", R.second_days, "дн.", R.first_days + 1, 28), "если анкеты всё ещё нет");
+    h += row("Сколько напоминать", step("max", R.max, "раз", 0, 2), "");
+    h += row("Сообщить HR", step("escalate_days", R.escalate_days, "дн.", R.second_days, 28), "если не ответили и после напоминаний");
+    h += row("Тихие часы", '<span class="row nowrap" style="gap:6px">' + step("quiet_from", R.quiet_from, ":00", 0, 23) + '<span class="xs muted">до</span>' + step("quiet_to", R.quiet_to, ":00", 0, 23) + "</span>", "ночью не беспокоим");
+    h += '<div class="col" style="gap:8px;padding:10px 0;border-top:1px solid var(--soft)"><span class="small">Каналы напоминаний</span><div class="row" style="gap:6px">' + CH.map(([k, n]) => '<button type="button" class="pill accent" data-rch="' + k + '" aria-pressed="' + !!R.channels[k] + '">' + esc(CH_SHORT[k]) + "</button>").join("") + "</div></div>";
+    if (M.plan.length) h += '<div class="col" style="gap:6px;background:var(--soft-3);border-radius:12px;padding:12px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">ПЛАН</span>' + M.plan.map((x) => '<span class="small">' + esc(x) + "</span>").join("") + "</div>";
+    h += '<button type="button" class="btn small" id="r-run" style="align-self:flex-start">Проверить и отправить сейчас</button>';
+    return h + "</section>";
+  }
+  async function saveReminders(patch) { M.reminders = await api("PUT", "/api/forms/reminders", { ...M.reminders, ...patch }); M = await api("GET", "/api/forms/mailing"); render(); }
+
   function buildTab() {
     let h = '<section class="card col"><div class="row between"><p class="eyebrow">Новый вопрос · тема и зеркальный вопрос от ИИ</p><div class="seg">' + [["intern", "Стажёру"], ["mentor", "Наставнику"]].map(([k, n]) => '<button type="button" data-side="' + k + '" aria-pressed="' + (side === k) + '">' + n + "</button>").join("") + "</div></div>";
     h += '<div class="row"><label class="sr-only" for="nq">Текст вопроса</label><input class="input" id="nq" placeholder="Например: Получаете ли вы обратную связь по своей работе?" style="flex:1 1 320px;width:auto"><button type="button" class="btn primary" id="nq-go">Предложить тему</button></div>';
@@ -80,7 +106,12 @@
     box.querySelectorAll("[data-ch]").forEach((b) => b.addEventListener("click", async () => { M.channels = await api("PUT", "/api/forms/channels", { ...M.channels, [b.dataset.ch]: !M.channels[b.dataset.ch] }); render(); }));
     box.querySelectorAll("[data-answers]").forEach((b) => b.addEventListener("click", () => showAnswers(b.dataset.answers)));
     box.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast("Ссылка скопирована — её можно отправить участнику"); } catch (e) { toast(b.dataset.copy); } }));
-    box.querySelectorAll("[data-pv]").forEach((b) => b.addEventListener("click", () => { pv = b.dataset.pv; render(); }));
+    box.querySelectorAll("[data-rs]").forEach((b) => b.addEventListener("click", () => saveReminders({ [b.dataset.rs]: M.reminders[b.dataset.rs] + Number(b.dataset.d) })));
+    box.querySelectorAll("[data-rch]").forEach((b) => b.addEventListener("click", () => saveReminders({ channels: { ...M.reminders.channels, [b.dataset.rch]: !M.reminders.channels[b.dataset.rch] } })));
+    const ron = box.querySelector("[data-r-on]");
+    if (ron) ron.addEventListener("click", () => saveReminders({ on: !M.reminders.on }));
+    const rrun = box.querySelector("#r-run");
+    if (rrun) rrun.addEventListener("click", async () => { rrun.disabled = true; const r = await api("POST", "/api/forms/reminders/run"); toast(r.message); load(); });
     box.querySelectorAll("[data-side]").forEach((b) => b.addEventListener("click", () => { side = b.dataset.side; sug = null; render(); }));
     const go = box.querySelector("#nq-go");
     if (go) go.addEventListener("click", async () => {

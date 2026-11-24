@@ -1,6 +1,6 @@
-"""Коннекторы Яндекс Форм и Google Forms: опрос новых ответов каждые 15 секунд.
+"""Коннекторы Яндекс Форм и Google Forms: опрос новых ответов и разбор вебхука.
 
-Без токенов в .env выключены (см. docs/FORMS.md).
+Подключаются на экране «Настройки» (или токенами в .env, см. docs/FORMS.md).
 """
 
 import asyncio
@@ -11,33 +11,21 @@ from typing import Any
 import httpx
 
 from app.core.settings import get_settings
-from app.db.models import AppSetting, Program
+from app.db.models import AppSetting, Organization, Program
 from app.db.session import SessionLocal
+from app.services import integrations
 from app.services.forms.external import ingest_external
 from app.services.forms.submit import SubmitError
 
 log = logging.getLogger("pulse.connectors")
 
 
-def yandex_enabled() -> bool:
-    s = get_settings()
-    return bool(s.yandex_forms_token and s.yandex_form_id)
-
-
-def google_enabled() -> bool:
-    s = get_settings()
-    return bool(s.google_forms_credentials and s.google_form_id)
-
-
-def status() -> dict:
-    """Состояние коннекторов для интерфейса."""
+def status(db, org: int) -> dict:
+    """Состояние коннекторов форм организации для интерфейса."""
+    y, g = integrations.config(db, org, "yandex"), integrations.config(db, org, "google")
     return {
-        "yandex": {
-            "enabled": yandex_enabled(),
-            "form_id": get_settings().yandex_form_id or None,
-            "webhook": "/api/forms/yandex/webhook",
-        },
-        "google": {"enabled": google_enabled(), "form_id": get_settings().google_form_id or None},
+        "yandex": {"enabled": bool(y), "form_id": y.get("form_id"), "webhook": "/api/forms/yandex/webhook"},
+        "google": {"enabled": bool(g), "form_id": g.get("form_id")},
         "poll_seconds": get_settings().forms_poll_seconds,
     }
 
@@ -93,15 +81,15 @@ def parse_yandex_answer(item: dict) -> tuple[str, dict[str, Any]]:
     return aid, fields
 
 
-def poll_yandex(program_id: int) -> int:
-    """Забирает новые ответы Яндекс Формы. Возвращает число обработанных."""
+def fetch_yandex(cfg: dict) -> list[tuple[str, dict]]:
+    """Ответы Яндекс Формы по API."""
     s = get_settings()
-    url = f"{s.yandex_forms_api}/surveys/{s.yandex_form_id}/answers"
-    r = httpx.get(url, headers={"Authorization": f"OAuth {s.yandex_forms_token}"}, timeout=15)
+    url = f"{s.yandex_forms_api}/surveys/{cfg['form_id']}/answers"
+    r = httpx.get(url, headers={"Authorization": f"OAuth {cfg['token']}"}, timeout=15)
     r.raise_for_status()
     payload = r.json()
     items = payload.get("answers") or payload.get("items") or (payload if isinstance(payload, list) else [])
-    return _process(program_id, "yandex", [parse_yandex_answer(i) for i in items])
+    return [parse_yandex_answer(i) for i in items]
 
 
 def _google_token(creds: dict) -> str:
@@ -119,13 +107,12 @@ def _google_token(creds: dict) -> str:
     return r.json()["access_token"]
 
 
-def poll_google(program_id: int) -> int:
-    """Забирает новые ответы Google Forms (forms.responses.list)."""
-    s = get_settings()
-    creds = json.loads(s.google_forms_credentials)
+def fetch_google(cfg: dict) -> list[tuple[str, dict]]:
+    """Ответы Google Forms (forms.responses.list)."""
+    creds = json.loads(cfg["credentials"])
     token = _google_token(creds)
     h = {"Authorization": f"Bearer {token}"}
-    base = f"https://forms.googleapis.com/v1/forms/{s.google_form_id}"
+    base = f"https://forms.googleapis.com/v1/forms/{cfg['form_id']}"
     form = httpx.get(base, headers=h, timeout=15).json()
     titles = {}
     for it in form.get("items", []):
@@ -142,37 +129,66 @@ def poll_google(program_id: int) -> int:
         if rr.get("respondentEmail"):
             fields["email"] = rr["respondentEmail"]
         parsed.append((rr.get("responseId", ""), fields))
-    return _process(program_id, "google", parsed)
+    return parsed
 
 
-def _process(program_id: int, source: str, items: list[tuple[str, dict]]) -> int:
-    key = f"seen_{source}"
+def ingest_any(db, org: int, fields: dict, source: str) -> dict:
+    """Ответ внешней формы: ищем участника во всех потоках организации.
+
+    Raises:
+        SubmitError: если участник не найден ни в одном потоке.
+    """
+    last: SubmitError | None = None
+    for program in db.query(Program).filter(Program.organization_id == org).order_by(Program.id.desc()):
+        try:
+            return ingest_external(db, program, fields, source)
+        except SubmitError as e:
+            last = e
+    raise last or SubmitError("В организации нет потоков.")
+
+
+def poll(db, program_id: int | None, kind: str, cfg: dict) -> int:
+    """Забирает новые ответы формы организации. Возвращает число принятых."""
+    program = db.get(Program, program_id) if program_id else None
+    org = program.organization_id if program else None
+    items = fetch_yandex(cfg) if kind == "yandex" else fetch_google(cfg)
+    key = f"seen_{kind}"
+    seen = _seen(db, program, key)
     done = 0
-    with SessionLocal() as db:
-        program = db.get(Program, program_id)
-        seen = _seen(db, program, key)
-        for aid, fields in items:
-            if aid in seen:
-                continue
-            try:
-                ingest_external(db, program, fields, source)
-                done += 1
-            except SubmitError as e:
-                log.warning("%s: ответ %s не принят: %s", source, aid, e)
-            seen.add(aid)
-        _mark(db, program, key, seen)
+    for aid, fields in items:
+        if aid in seen:
+            continue
+        try:
+            ingest_any(db, org, fields, kind)
+            done += 1
+        except SubmitError as e:
+            log.warning("%s: ответ %s не принят: %s", kind, aid, e)
+        seen.add(aid)
+    _mark(db, program, key, seen)
     return done
 
 
-async def poller(program_id: int) -> None:
-    """Фоновый опрос включённых коннекторов."""
-    interval = get_settings().forms_poll_seconds
+async def poller() -> None:
+    """Фоновый опрос подключённых форм всех организаций."""
     while True:
-        for enabled, fn in ((yandex_enabled, poll_yandex), (google_enabled, poll_google)):
-            if not enabled():
-                continue
+        with SessionLocal() as db:
+            jobs = []
+            for org in db.query(Organization):
+                prog = (
+                    db.query(Program).filter(Program.organization_id == org.id).order_by(Program.id).first()
+                )
+                for kind in ("yandex", "google"):
+                    cfg = integrations.config(db, org.id, kind)
+                    if cfg and prog:
+                        jobs.append((prog.id, kind, cfg))
+        for pid, kind, cfg in jobs:
             try:
-                await asyncio.to_thread(fn, program_id)
+                await asyncio.to_thread(_poll_job, pid, kind, cfg)
             except Exception as e:  # noqa: BLE001
-                log.warning("Коннектор %s: %s", fn.__name__, e)
-        await asyncio.sleep(interval)
+                log.warning("Коннектор %s: %s", kind, e)
+        await asyncio.sleep(get_settings().forms_poll_seconds)
+
+
+def _poll_job(pid: int, kind: str, cfg: dict) -> int:
+    with SessionLocal() as db:
+        return poll(db, pid, kind, cfg)

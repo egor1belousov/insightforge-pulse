@@ -7,6 +7,8 @@ os.environ["LLM_ENABLED"] = "false"
 os.environ["APP_ENV"] = "dev"
 os.environ["DEMO_POOL_SIZE"] = "0"
 os.environ["DEMO_SANDBOX"] = "false"
+os.environ["TELEGRAM_BOT"] = "false"
+os.environ["AUTO_REMINDERS"] = "false"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

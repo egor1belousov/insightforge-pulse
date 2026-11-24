@@ -6,7 +6,12 @@
   let D = null, reopen = false;
   const TALK = ["Нагрузка", "Отношения в паре", "Обучение", "Перспективы", "Другое"];
 
-  async function load() { D = await api("GET", "/api/me"); render(); }
+  let TG = null;
+  async function load() { [D, TG] = await Promise.all([api("GET", "/api/me"), api("GET", "/api/telegram/link").catch(() => null)]); render(); }
+  function tgCard() {
+    if (!TG || !TG.link) return "";
+    return '<section class="card col tg-card" style="flex:1 1 100%"><div class="row between" style="gap:14px"><span class="row nowrap" style="gap:14px"><span class="int-ic">✈</span><span class="col" style="gap:3px"><b>' + (TG.linked ? "Telegram подключён" : "Анкета в Telegram") + '</b><span class="small muted">' + (TG.linked ? "Напоминания приходят в чат, отвечать можно кнопками прямо там." : "Подключите бота — напоминание придёт в чат, а анкету можно заполнить кнопками за две минуты.") + "</span></span></span>" + (TG.linked ? '<span class="chip ok">подключено</span>' : '<a class="btn primary small" href="' + esc(TG.link) + '" target="_blank" rel="noopener">Подключить Telegram</a>') + "</div></section>";
+  }
   // Путь стажировки: месяцы программы, сданные анкеты и текущий месяц
   function journey() {
     if (!D.months || !D.months.length) return "";
@@ -21,6 +26,7 @@
     h += '<section class="card col" style="flex:1 1 300px"><p class="eyebrow">Мои оценки по темам</p>';
     h += D.bars.length ? D.bars.map((b) => '<div><div class="row between small"><span>' + esc(b.name) + "</span><b>" + b.now.toFixed(2) + (b.was != null ? ' <span class="muted" style="font-weight:400">(было ' + b.was.toFixed(2) + ")</span>" : "") + '</b></div><div class="bar" style="margin-top:6px"><span style="width:' + Math.round(b.now * 100) + '%;background:var(--accent)"></span></div></div>').join("") : '<p class="small muted">Появятся после первой анкеты.</p>';
     h += '<p class="xs muted">Это только ваши оценки. Оценки ' + (isM ? "стажёра" : "наставника") + " вам не показываются.</p></section></div>";
+    h += tgCard();
     h += '<div class="widgets"><section class="card col" style="flex:1 1 360px"><p class="eyebrow">Темы для разговора</p>' + (D.talk.length ? D.talk.map((t) => '<div style="background:var(--soft-3);border-radius:12px;padding:12px"><b class="small">' + esc(t.title) + '</b><p class="small muted" style="margin-top:4px;line-height:1.5">' + esc(t.text) + "</p></div>").join("") : '<p class="small muted">Пока всё спокойно.</p>') + "</section>";
     const tr = D.talk_request;
     h += '<section class="card col" style="flex:1 1 360px;' + (tr ? "background:" + (tr.answered ? "var(--ok-bg)" : "var(--over-bg)") : "") + '"><p class="eyebrow">Хочу поговорить с HR</p>';

@@ -14,9 +14,9 @@ from app.core.security import make_survey_token, read_survey_token
 from app.core.settings import get_settings
 from app.db.models import Notification, Participant, Program, Response, TalkRequest, User
 from app.db.session import get_db
+from app.services import integrations
 from app.services.events.bus import bus
 from app.services.forms import connectors
-from app.services.forms.external import ingest_external
 from app.services.forms.me import my_data
 from app.services.forms.submit import SubmitError, active_questionnaire, current_period, submit_response
 
@@ -141,25 +141,30 @@ def survey_links(user: User = Depends(require_role(*HR_ONLY)), db: Session = Dep
 
 
 @router.get("/forms/status")
-def forms_status(user: User = Depends(require_role(*HR_ONLY))) -> dict:
-    return connectors.status()
+def forms_status(user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)) -> dict:
+    return connectors.status(db, user.organization_id)
 
 
 @router.post("/forms/yandex/webhook")
 async def yandex_webhook(request: Request, token: str = "", db: Session = Depends(get_db)) -> dict:
-    secret = get_settings().yandex_webhook_secret
-    if not secret or token != secret:
+    """Вебхук Яндекс Формы: организация определяется по секрету в адресе."""
+    org = integrations.org_by_secret(db, "yandex", token)
+    if org is None and get_settings().yandex_webhook_secret and token == get_settings().yandex_webhook_secret:
+        first = db.query(Program).order_by(Program.id).first()
+        org = first.organization_id if first else None
+    if org is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Неверный токен вебхука.")
     try:
         body = await request.json()
     except json.JSONDecodeError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ожидается JSON.") from e
-    prog = db.query(Program).order_by(Program.id).first()
     _, fields = connectors.parse_yandex_answer(body if isinstance(body, dict) else {"data": body})
     try:
-        ev = ingest_external(db, _program(db, prog.id if prog else None), fields, "yandex")
+        ev = connectors.ingest_any(db, org, fields, "yandex")
     except SubmitError as e:
+        integrations.log(db, org, "yandex", f"Ответ не принят: {e}", ok=False)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    integrations.log(db, org, "yandex", f"Ответ по вебхуку: {ev['pair']}")
     return {"ok": True, "pair": ev["pair"], "message": ev["message"]}
 
 

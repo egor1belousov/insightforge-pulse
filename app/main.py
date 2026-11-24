@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
-from app.api import auth, dashboard, extra, forms, imports, learn, llm, programs
+from app.api import auth, dashboard, extra, forms, imports, integrations, learn, llm, programs
 from app.core.settings import get_settings
 from app.db.session import engine
 from app.web import pages
@@ -18,25 +18,29 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Запускает опрос Яндекс/Google Forms и запас песочниц демо."""
-    from app.db.models import Program
-    from app.db.session import SessionLocal
+    """Запускает опрос форм, Telegram-бота, автонапоминания и запас песочниц демо."""
     from app.services import sandbox
     from app.services.forms import connectors
 
     stop = sandbox.start_worker() if sandbox.enabled() and settings.demo_pool_size > 0 else None
+    from app.services import reminders, telegram
 
-    task = None
-    if connectors.yandex_enabled() or connectors.google_enabled():
-        with SessionLocal() as db:
-            prog = db.query(Program).order_by(Program.id).first()
-        if prog:
-            task = asyncio.create_task(connectors.poller(prog.id))
+    stops = [telegram.start()] if settings.telegram_bot else []
+    stops.append(reminders.start())
+
+    task = asyncio.create_task(connectors.poller())
+    stop = sandbox.start_worker() if sandbox.enabled() and settings.demo_pool_size > 0 else None
+    from app.services import reminders, telegram
+
+    stops = [telegram.start()] if settings.telegram_bot else []
+    stops.append(reminders.start())
     yield
     if task:
         task.cancel()
     if stop:
         stop.set()
+    for ev in stops:
+        ev.set()
 
 
 app = FastAPI(
@@ -55,6 +59,7 @@ app.include_router(forms.router)
 app.include_router(dashboard.router)
 app.include_router(extra.router)
 app.include_router(learn.router)
+app.include_router(integrations.router)
 app.include_router(pages.router)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static")
 
