@@ -482,8 +482,8 @@ code.formula {
   .stream-btn { max-width: 130px; font-size: 11px; }
   .topbar .grow { display: none; }
   .brand-wrap { flex: 1 1 auto; min-width: 0; }
-  .search-btn, .topbar .icon-btn { width: 36px; height: 36px; min-width: 36px; min-height: 36px; flex: 0 0 36px; padding: 0; }
-  .profile-btn { min-height: 36px; padding: 2px; }
+  .search-btn, .topbar .icon-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; flex: 0 0 44px; padding: 0; }
+  .profile-btn { min-height: 44px; min-width: 44px; padding: 2px; justify-content: center; }
   .profile-btn .avatar { width: 30px; height: 30px; }
   .topbar .theme-toggle .tt-track { width: 54px; height: 30px; padding: 0 7px; }
   .topbar .theme-toggle .tt-knob { width: 22px; height: 22px; }
@@ -628,3 +628,4 @@ img, video, canvas, svg { max-width: 100%; }
   .stream-btn { max-width: 100%; }
 }
 @media (max-width: 767px) { .stream-btn { min-width: 0; } .stream-btn > span:first-child { min-width: 0; } .demo-narrow { flex-shrink: 0; } }
+@media (pointer: coarse) { .profile-btn { min-width: 44px; justify-content: center; } }
