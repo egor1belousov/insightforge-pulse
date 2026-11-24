@@ -267,10 +267,33 @@ def ingest_any(db, org: int, fields: dict, source: str) -> dict:
     raise last or SubmitError("В организации нет потоков.")
 
 
+def deliver(db, org: int, fields: dict, source: str) -> dict:
+    """Ответ внешней формы во все организации-получатели; хотя бы одна должна принять.
+
+    Returns:
+        Событие первой принявшей организации и число принявших.
+
+    Raises:
+        SubmitError: если участника нет ни в одной.
+    """
+    first, n, last = None, 0, None
+    for target in integrations.demo_targets(db, org):
+        try:
+            ev = ingest_any(db, target, fields, source)
+            first, n = first or ev, n + 1
+        except SubmitError as e:
+            last = e
+    if first is None:
+        raise last or SubmitError("Участник не найден.")
+    return first | {"delivered": n}
+
+
 def poll(db, program_id: int | None, kind: str, cfg: dict, org: int | None = None) -> int:
     """Забирает новые ответы формы организации. Возвращает число принятых."""
     program = db.get(Program, program_id) if program_id else None
     org = org or (program.organization_id if program else None)
+    if kind == "yandex" and not cfg.get("token"):
+        return 0  # режим «только вебхук»
     items = {"yandex": fetch_yandex, "google": fetch_google, "yandex_mail": fetch_mail}[kind](cfg)
     key = f"seen_{kind}"
     seen = _seen(db, program, key)
@@ -279,7 +302,7 @@ def poll(db, program_id: int | None, kind: str, cfg: dict, org: int | None = Non
         if aid in seen:
             continue
         try:
-            ingest_any(db, integrations.active_demo_org(db, org) if org else org, fields, kind)
+            deliver(db, org, fields, kind)
             done += 1
         except SubmitError as e:
             log.warning("%s: ответ %s не принят: %s", kind, aid, e)

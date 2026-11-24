@@ -313,18 +313,29 @@ def connect(db: Session, org: int, kind: str, data: dict) -> dict:
             v = old.get(f, "")
         if not v and f == "port":
             v = "587"
-        if f == "form_id" and kind == "yandex":
+        if f == "form_id" and kind == "yandex" and v:
             m = FORM_ID_RE.search(v)
             if not m:
                 raise CheckError("ID формы — 24 символа из адреса формы (буквы a–f и цифры).")
             v = m.group(0)
-        if not v and f in OPTIONAL:
+        if not v and (
+            f in OPTIONAL
+            or (
+                kind == "yandex"
+                and f in ("token", "form_id")
+                and not str(data.get("token") or "").strip()
+                and not old.get("token")
+            )
+        ):
             cfg[f] = ""
             continue
         if not v:
             raise CheckError(f"Заполните поле «{label}».")
         cfg[f] = v
-    info = check(kind, cfg)
+    if kind == "yandex" and not cfg.get("token"):
+        info = "приём ответов по вебхуку (без API)"
+    else:
+        info = check(kind, cfg)
     cfg |= {"connected": True, "info": info, "secret": old.get("secret") or secrets.token_urlsafe(18)}
     _put(db, org, f"int_{kind}", cfg)
     log(db, org, kind, f"Подключено: {info}")
@@ -381,25 +392,28 @@ def send_email(db: Session, org: int, to: str | None, title: str, text: str, lin
     return "отправлено"
 
 
-def active_demo_org(db: Session, org: int) -> int:
-    """Куда класть ответ внешней формы основной демо-организации: в песочницу, где сейчас идёт показ."""
+def demo_targets(db: Session, org: int) -> list[int]:
+    """Куда доставить ответ внешней формы: у основной демо-организации — в неё и во все живые песочницы."""
     from datetime import datetime, timedelta
 
     from app.db.models import Organization
 
     if org != demo_template(db):
-        return org
-    recent = (
-        db.query(Organization)
-        .filter(
-            Organization.sandbox_claimed_at.is_not(None),
-            Organization.sandbox_seen_at
-            >= datetime.utcnow() - timedelta(hours=get_settings().demo_sandbox_hours),
-        )
+        return [org]
+    edge = datetime.utcnow() - timedelta(hours=get_settings().demo_sandbox_hours)
+    live = (
+        db.query(Organization.id)
+        .filter(Organization.sandbox_claimed_at.is_not(None), Organization.sandbox_seen_at >= edge)
         .order_by(Organization.sandbox_seen_at.desc())
-        .first()
     )
-    return recent.id if recent else org
+    return [org] + [o.id for o in live]
+
+
+def config_owner(db: Session, org: int, kind: str) -> int:
+    """Чья настройка интеграции действует для организации: своя или основной демо-организации."""
+    if own(db, org, kind) or not is_sandbox(db, org):
+        return org
+    return demo_template(db) or org
 
 
 def org_by_secret(db: Session, kind: str, secret: str) -> int | None:

@@ -154,18 +154,23 @@ async def yandex_webhook(request: Request, token: str = "", db: Session = Depend
         org = first.organization_id if first else None
     if org is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Неверный токен вебхука.")
+    raw = (await request.body()).decode("utf-8", errors="ignore")
     try:
-        body = await request.json()
-    except json.JSONDecodeError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ожидается JSON.") from e
-    _, fields = connectors.parse_yandex_answer(body if isinstance(body, dict) else {"data": body})
-    org = integrations.active_demo_org(db, org)
+        body = json.loads(raw)
+        if isinstance(body, dict) and isinstance(body.get("params"), dict):
+            body = body["params"]  # JSON-RPC
+        fields = connectors.parse_yandex_answer(body if isinstance(body, dict) else {"data": body})[1]
+        if not any(isinstance(v, (str, int, float)) for v in fields.values()):
+            fields = connectors.parse_mail_body(raw)
+    except json.JSONDecodeError:
+        fields = connectors.parse_mail_body(raw)
+    integrations.log(db, org, "yandex", f"Вебхук получен: {raw[:160]}")
     try:
-        ev = connectors.ingest_any(db, org, fields, "yandex")
+        ev = connectors.deliver(db, org, fields, "yandex")
     except SubmitError as e:
         integrations.log(db, org, "yandex", f"Ответ не принят: {e}", ok=False)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-    integrations.log(db, org, "yandex", f"Ответ по вебхуку: {ev['pair']}")
+    integrations.log(db, org, "yandex", f"Ответ по вебхуку: {ev['pair']}, получателей: {ev['delivered']}")
     return {"ok": True, "pair": ev["pair"], "message": ev["message"]}
 
 
