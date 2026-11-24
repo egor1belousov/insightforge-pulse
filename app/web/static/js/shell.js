@@ -12,10 +12,12 @@
       document.querySelectorAll("[aria-expanded]").forEach((x) => x.setAttribute("aria-expanded", "false"));
       p.hidden = !open; b.setAttribute("aria-expanded", String(open));
       if (open && popId === "notif-pop") window.dispatchEvent(new Event("pulse:notif-open"));
+      if (open && popId === "stream-pop") window.dispatchEvent(new Event("pulse:streams-open"));
     });
   }
   pop("menu-btn", "menu-pop");
   pop("notif-btn", "notif-pop");
+  pop("stream-btn", "stream-pop");
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".popover")) document.querySelectorAll(".popover").forEach((x) => (x.hidden = true));
   });
@@ -127,4 +129,37 @@
   const pb = document.getElementById("palette-open");
   if (pb) pb.addEventListener("click", openPalette);
   document.addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (!document.querySelector(".modal-back")) openPalette(); } });
+})();
+
+// Потоки стажировки: переключение и создание нового потока.
+(function () {
+  "use strict";
+  const box = document.getElementById("stream-pop"), main = document.getElementById("main");
+  if (!box || !main) return;
+  const { api, esc, toast } = Pulse, isHr = main.dataset.role === "hr";
+  const ST = { "идёт": "ok", "набор": "info", "скоро": "info", "завершается": "warn", "завершён": "" };
+  window.addEventListener("pulse:streams-open", async () => {
+    box.innerHTML = '<p class="small muted" style="padding:10px">Загружаем потоки…</p>';
+    const list = await api("GET", "/api/programs");
+    box.innerHTML = '<p class="eyebrow grey" style="margin:6px 10px 8px">Потоки компании</p>' + list.map((p) => '<button type="button" class="item stream-item" data-stream="' + p.id + '" aria-current="' + p.current + '"><span class="grow col" style="gap:3px"><span class="row nowrap" style="gap:8px"><b class="small">' + esc(p.name) + "</b>" + (p.current ? '<span class="chip info">открыт</span>' : "") + '</span><span class="xs muted">' + (p.start ? new Date(p.start).toLocaleDateString("ru-RU", { month: "long", year: "numeric" }) + " · " : "") + p.months + " мес. · пар " + p.pairs + " · людей " + p.people + (p.period ? " · " + p.period + "-й месяц" : "") + '</span></span><span class="chip ' + (ST[p.status] || "") + '">' + esc(p.status) + "</span></button>").join("") + (isHr ? '<button type="button" class="btn small" id="stream-new" style="margin:8px 10px 6px;align-self:flex-start">+ Новый поток</button>' : "");
+    box.querySelectorAll("[data-stream]").forEach((b) => b.addEventListener("click", async () => {
+      if (b.getAttribute("aria-current") === "true") { box.hidden = true; return; }
+      await api("POST", "/api/programs/" + b.dataset.stream + "/switch"); location.reload();
+    }));
+    const nb = document.getElementById("stream-new");
+    if (nb) nb.addEventListener("click", (e) => { e.stopPropagation(); box.hidden = true; createModal(); });
+  });
+  function createModal() {
+    const now = new Date(), ym = now.getFullYear() + "-" + String(now.getMonth() + 2 > 12 ? 1 : now.getMonth() + 2).padStart(2, "0");
+    const m = Pulse.modal('<div class="modal" role="dialog" aria-modal="true" aria-labelledby="sn-t"><div class="row between"><h2 class="head" id="sn-t" style="font-size:20px">Новый поток стажировки</h2><button type="button" class="icon-btn" data-close aria-label="Закрыть">×</button></div><p class="small muted">Поток принадлежит компании: его увидят все HR и руководители. Участников и пары добавите в разделе «Программа».</p><div class="field"><label for="sn-name">Название</label><input class="input" id="sn-name" placeholder="Например: Стажировка весна 2027"></div><div class="row" style="gap:12px"><div class="field" style="flex:1 1 180px"><label for="sn-start">Старт</label><input class="input" id="sn-start" type="month" value="' + ym + '"></div><div class="field" style="flex:1 1 140px"><label for="sn-months">Длительность, мес.</label><input class="input" id="sn-months" type="number" min="1" max="24" value="6"></div></div><label class="row nowrap small" style="gap:10px;cursor:pointer"><input type="checkbox" id="sn-copy" checked style="width:20px;height:20px;accent-color:var(--accent)"> Скопировать анкеты текущего потока (темы и зеркальные вопросы)</label><div id="sn-err" class="form-error" hidden></div><button type="button" class="btn primary" id="sn-go" style="align-self:flex-start">Создать и открыть</button></div>');
+    const q = (s) => m.back.querySelector(s);
+    q("#sn-name").focus();
+    q("#sn-go").addEventListener("click", async () => {
+      const st = q("#sn-start").value;
+      try {
+        await api("POST", "/api/programs", { name: q("#sn-name").value, start: st ? st + "-01" : null, months: Number(q("#sn-months").value) || 6, copy_questionnaires: q("#sn-copy").checked });
+        location.href = "/program";
+      } catch (e) { q("#sn-err").textContent = e.message; q("#sn-err").hidden = false; }
+    });
+  }
 })();

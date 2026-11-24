@@ -527,7 +527,13 @@ def get_settings_api(user: User = Depends(require_role(*HR_ONLY)), db: Session =
         "forms": connectors.status(db, user.organization_id),
         "demo": get_settings().demo_mode,
         "users": [
-            {"email": public_email(u.email), "name": u.name, "role": u.role}
+            {
+                "id": u.id,
+                "email": public_email(u.email),
+                "name": u.name,
+                "role": u.role,
+                "me": u.id == user.id,
+            }
             for u in db.query(User).filter(
                 User.organization_id == prog.organization_id, User.role.in_(("hr", "lead"))
             )

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import current_user_optional, own_participant
 from app.core.settings import get_settings
-from app.db.models import User
+from app.db.models import Program, User
 from app.db.session import get_db
 from app.services.sandbox import public_email
 
@@ -50,7 +50,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "7"
+ASSET_V = "8"
 
 
 def home_for(user: User) -> str:
@@ -95,6 +95,9 @@ def app_page(
         "initials": initials,
         "short": part.external_id if part else ("HR" if user.role == "hr" else "Руководитель"),
         "external_id": part.external_id if part else None,
+        "program_name": (db.get(Program, user.program_id).name if user.program_id else "")
+        if user.role in ("hr", "lead")
+        else "",
     }
     nav = [{"key": k, "label": label, "url": url, "badge": None} for k, label, url in NAV[user.role]]
     return render(request, template, me=me, nav=nav, active=active, home_url=home_for(user), **ctx)

@@ -1,5 +1,7 @@
 """Программа, участники и пары."""
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -8,13 +10,9 @@ from app.core.deps import HR_ONLY, STAFF, require_role
 from app.db.models import Pair, PairMentorHistory, Participant, Program, User
 from app.db.session import get_db
 from app.services import program as program_svc
+from app.services import streams
 
 router = APIRouter(prefix="/api", tags=["программа"])
-
-
-class ProgramIn(BaseModel):
-    name: str
-    months: int = 6
 
 
 class ParticipantIn(BaseModel):
@@ -42,24 +40,57 @@ def _program(db: Session, user: User) -> Program:
 
 @router.get("/programs")
 def list_programs(user: User = Depends(require_role(*STAFF)), db: Session = Depends(get_db)) -> list[dict]:
-    rows = db.query(Program).filter(Program.organization_id == user.organization_id)
-    return [
-        {"id": p.id, "name": p.name, "months": p.months, "current": p.id == user.program_id} for p in rows
-    ]
+    return streams.overview(db, user)
+
+
+class StreamIn(BaseModel):
+    name: str
+    start: date | None = None
+    months: int = 6
+    copy_questionnaires: bool = True
 
 
 @router.post("/programs")
 def create_program(
-    data: ProgramIn, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)
+    data: StreamIn, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)
 ) -> dict:
-    if not data.name.strip():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Введите название программы.")
-    prog = Program(organization_id=user.organization_id, name=data.name.strip(), months=data.months)
-    db.add(prog)
-    db.flush()
-    user.program_id = prog.id
-    db.commit()
+    try:
+        prog = streams.create(db, user, data.name, data.start, data.months, data.copy_questionnaires)
+    except streams.StreamError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
     return {"id": prog.id, "name": prog.name}
+
+
+@router.post("/programs/{program_id}/switch")
+def switch_program(
+    program_id: int, user: User = Depends(require_role(*STAFF)), db: Session = Depends(get_db)
+) -> dict:
+    try:
+        prog = streams.switch(db, user, program_id)
+    except streams.StreamError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
+    return {"id": prog.id, "name": prog.name}
+
+
+@router.delete("/users/{user_id}")
+def remove_user(
+    user_id: int, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)
+) -> dict:
+    """Отключает доступ сотрудника. Потоки, пары и заметки остаются у компании."""
+    target = db.get(User, user_id)
+    if target is None or target.organization_id != user.organization_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Пользователь не найден.")
+    if target.id == user.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Нельзя отключить себя.")
+    if (
+        target.role == "hr"
+        and db.query(User).filter(User.organization_id == user.organization_id, User.role == "hr").count()
+        <= 1
+    ):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "В компании должен остаться хотя бы один HR.")
+    db.delete(target)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/participants")

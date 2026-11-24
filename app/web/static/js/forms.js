@@ -23,6 +23,7 @@
     box.innerHTML = h; bind();
   }
   function sendTab() {
+    if (!M.rows.length) return '<div class="widgets"><section class="card col" style="flex:2 1 520px;align-items:flex-start"><p class="eyebrow">Рассылка за ' + esc(M.month) + '</p><p class="head" style="font-size:22px">В потоке пока нет пар</p><p class="small muted" style="line-height:1.5">Анкета уходит стажёру и наставнику каждой пары. Добавьте участников и соберите пары — рассылка начнётся в начале месяца, каналы и напоминания уже можно настроить справа.</p><a class="btn primary small" href="/program">К участникам и парам →</a></section><div class="col" style="flex:1 1 340px;gap:16px">' + channelsCard() + remindersCard() + "</div></div>";
     const pend = M.rows.filter((r) => r.status !== "заполнено").map((r) => r.external_id);
     let h = '<div class="widgets"><section class="card col" style="flex:2 1 520px"><div class="row between"><p class="eyebrow">Рассылка за ' + esc(M.month) + " · " + M.got + " из " + M.total + "</p>" + (pend.length ? '<button type="button" class="btn primary small" data-remind="' + esc(pend.join(",")) + '">Напомнить всем, кто не заполнил</button>' : "") + "</div>";
     const rem = M.rows.filter((r) => r.status === "напомнили").length;
