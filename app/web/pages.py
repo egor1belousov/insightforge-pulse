@@ -36,6 +36,17 @@ NAV = {
     "mentor": [("me", "Моя пара", "/me"), ("learn", "Обучение", "/learn")],
     "intern": [("me", "Моя стажировка", "/me"), ("learn", "Обучение", "/learn")],
 }
+# иконки нижней панели вкладок на телефоне (SVG-контур 24×24)
+TAB_ICONS = {
+    "dash": '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/>'
+    '<rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    "pairs": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><circle cx="17" cy="9" r="2.8"/>'
+    '<path d="M15.5 14.5a5.5 5.5 0 016 5.5"/>',
+    "prog": '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>',
+    "forms": '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+    "learn": '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2V5z"/><path d="M4 19a2 2 0 012-2h13"/>',
+    "me": '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/>',
+}
 DEMO_ACCOUNTS = [
     {"email": "hr@pulse.demo", "label": "HR-партнёр", "scope": "Все пары, действия, анкеты, обучение"},
     {"email": "lead@pulse.demo", "label": "Руководитель программы", "scope": "Все пары, без назначений"},
@@ -50,7 +61,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "14"
+ASSET_V = "15"
 
 
 def home_for(user: User) -> str:
@@ -100,7 +111,18 @@ def app_page(
         else "",
         "demo": is_demo_user(db, user),
     }
-    nav = [{"key": k, "label": label, "url": url, "badge": None} for k, label, url in NAV[user.role]]
+    short = {"Моя стажировка": "Стажировка", "Моя пара": "Пара"}
+    nav = [
+        {
+            "key": k,
+            "label": label,
+            "short": short.get(label, label),
+            "url": url,
+            "badge": None,
+            "icon": TAB_ICONS[k],
+        }
+        for k, label, url in NAV[user.role]
+    ]
     return render(request, template, me=me, nav=nav, active=active, home_url=home_for(user), **ctx)
 
 

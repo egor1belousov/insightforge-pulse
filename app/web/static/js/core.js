@@ -164,6 +164,22 @@
     els.forEach((n) => n.querySelectorAll(".bar > span").forEach((b) => { if (!oldBars.has(b.getAttribute("style"))) b.classList.add("grow-in"); }));
     if (!rerender) els.forEach((n) => n.querySelectorAll(".kpi .value, [data-count]").forEach(countUp));
   }
+  // Таблицы-карточки: на телефоне у каждой ячейки подпись из заголовка столбца
+  function labelTables(root) {
+    (root.querySelectorAll ? root : document).querySelectorAll("table.cards").forEach((t) => {
+      const heads = Array.from(t.querySelectorAll("thead th")).map((th) => th.textContent.trim());
+      t.querySelectorAll("tbody tr").forEach((tr) => Array.from(tr.children).forEach((td, i) => { if (!td.hasAttribute("data-label") && heads[i]) td.setAttribute("data-label", heads[i]); }));
+    });
+  }
+  // Ряды вкладок, которые не помещаются: класс overflow включает затухание у края
+  function markOverflow() {
+    document.querySelectorAll(".seg, .tabs").forEach((el) => el.classList.toggle("overflow", el.scrollWidth > el.clientWidth + 2));
+  }
+  let ovTimer = null;
+  const scheduleOverflow = () => { clearTimeout(ovTimer); ovTimer = setTimeout(markOverflow, 60); };
+  window.addEventListener("resize", scheduleOverflow);
+  new MutationObserver((ms) => { ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) labelTables(n); })); scheduleOverflow(); }).observe(document.documentElement, { childList: true, subtree: true });
+
   // Заголовки с data-split появляются по словам
   function splitWords() {
     document.querySelectorAll("[data-split]:not([data-split-done])").forEach((h) => {

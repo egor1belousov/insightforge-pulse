@@ -38,7 +38,7 @@
     const ip = ch.intern.map(([p, v]) => [X(ix(p)), Y(v)]), mp = ch.mentor.map(([p, v]) => [X(ix(p)), Y(v)]);
     const warm = (C.sig.delta || 0) >= 0, fill = warm ? "rgba(226,139,0,0.18)" : "rgba(47,111,219,0.16)", ffill = warm ? "rgba(226,139,0,0.09)" : "rgba(47,111,219,0.08)";
     const fxp = Math.min(X(ms.length), 628);
-    let h = '<svg viewBox="0 0 640 230" role="img" aria-label="Оценки стажёра и наставника по месяцам с прогнозом" style="width:100%;height:auto;display:block">';
+    let h = '<div class="chart-wrap"><svg viewBox="0 0 640 230" role="img" aria-label="Оценки стажёра и наставника по месяцам с прогнозом" style="width:100%;height:auto;display:block">';
     h += '<rect x="' + X(ms.length - 1) + '" y="14" width="' + (fxp - X(ms.length - 1)) + '" height="180" fill="#F3F5F9" rx="6"></rect>';
     if (ch.swap) { const sx = X(ix(ch.swap)) - 49; h += '<line x1="' + sx + '" x2="' + sx + '" y1="14" y2="194" stroke="#C26F00" stroke-width="2" stroke-dasharray="3 3"></line><text x="' + (sx - 4) + '" y="26" font-size="10" fill="#C26F00" text-anchor="end">смена наставника</text>'; }
     const labels = scale === "cal" ? ["+0.50", "+0.25", "норма", "−0.25", "−0.50"] : ["1.00", "0.75", "0.50", "0.25", "0.00"];
@@ -54,7 +54,7 @@
     ip.forEach((p) => (h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="#0A7CD6" stroke="#fff" stroke-width="2"></circle>'));
     mp.forEach((p) => (h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="#0E1424" stroke="#fff" stroke-width="2"></circle>'));
     ms.forEach((m, i) => (h += '<text x="' + X(i) + '" y="216" font-size="11" fill="#5B6478" text-anchor="middle">' + esc(m.short) + "</text>"));
-    h += '<text x="' + fxp + '" y="216" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(C.next_short) + " · прогноз</text></svg>";
+    h += '<text x="' + fxp + '" y="216" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(C.next_short) + " · прогноз</text></svg></div>";
     h += '<div class="row xs" style="gap:16px;margin-top:8px;color:var(--muted-2)"><span class="row nowrap" style="gap:6px"><span style="width:16px;height:3px;background:var(--accent)"></span>Стажёр ' + esc(C.intern) + '</span><span class="row nowrap" style="gap:6px"><span style="width:16px;border-top:3px dashed var(--ink)"></span>Наставник ' + esc(C.mentor) + '</span><span class="row nowrap" style="gap:6px"><span style="width:14px;height:10px;background:' + fill + ';border-radius:2px"></span>Расхождение</span><span class="row nowrap" style="gap:6px"><span style="width:14px;height:10px;background:var(--bg);border:1px solid var(--line-2);border-radius:2px"></span>Прогноз</span></div>';
     return h;
   }
@@ -71,7 +71,7 @@
     h += '<p class="small"><b>До красной зоны:</b> ' + esc(C.sig.red) + '</p><div style="border-top:1px solid var(--soft);padding-top:12px"><p class="xs muted" style="margin-bottom:6px">Здоровье ' + C.health + " = 100 минус штрафы</p>";
     h += C.contrib.length ? C.contrib.map((c) => '<div class="row between small nowrap" style="padding:3px 0"><span>' + esc(c.name) + '</span><b style="color:var(--both)">−' + c.v + "</b></div>").join("") : '<p class="small" style="color:var(--ok-fg)">Штрафов нет: оценки близки и растут.</p>';
     h += "</div></section></div>";
-    h += '<section class="card"><p class="eyebrow" style="margin-bottom:8px">Δ по темам и месяцам</p><div class="scroll-x"><div style="display:grid;grid-template-columns:130px repeat(' + C.months.length + ',minmax(36px,1fr));gap:3px;font-size:11px;min-width:420px"><span></span>' + C.months.map((m) => '<span style="text-align:center;color:var(--muted)">' + esc(m.short) + "</span>").join("");
+    h += '<section class="card"><p class="eyebrow" style="margin-bottom:8px">Δ по темам и месяцам</p><div class="scroll-x"><div style="display:grid;grid-template-columns:130px repeat(' + C.months.length + ',minmax(36px,1fr));gap:3px;font-size:12px;min-width:420px"><span></span>' + C.months.map((m) => '<span style="text-align:center;color:var(--muted)">' + esc(m.short) + "</span>").join("");
     C.heat.forEach((r) => {
       h += '<span class="small" style="color:var(--muted-2);align-self:center">' + esc(r.name) + "</span>";
       r.cells.forEach((v) => { const bg = v == null ? "var(--soft)" : v >= 0 ? "rgba(226,139,0," + Math.min(0.85, 0.08 + Math.abs(v) * 1.4).toFixed(2) + ")" : "rgba(47,111,219," + Math.min(0.75, 0.08 + Math.abs(v) * 1.3).toFixed(2) + ")"; h += '<span style="height:26px;border-radius:6px;background:' + bg + ';display:flex;align-items:center;justify-content:center">' + (v == null ? "" : (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1).replace(/^0/, "")) + "</span>"; });
@@ -81,7 +81,7 @@
       h += '<section class="card col"><p class="eyebrow">Сигналы этого месяца</p>';
       C.signals.forEach((s) => {
         h += '<div class="list-row"><span class="grow"><b class="small">' + esc(s.description) + '</b><br><span class="xs muted">' + esc(s.cause) + "</span></span>";
-        if (C.can_act && s.id && s.type !== "missing") h += '<span class="row nowrap" style="gap:6px"><button type="button" class="pill" data-verdict="confirmed" data-sid="' + s.id + '" aria-pressed="' + (s.verdict === "confirmed") + '">Подтверждаю</button><button type="button" class="pill" data-verdict="false_alarm" data-sid="' + s.id + '" aria-pressed="' + (s.verdict === "false_alarm") + '">Ложная тревога</button></span>';
+        if (C.can_act && s.id && s.type !== "missing") h += '<span class="row nowrap verdicts" style="gap:6px"><button type="button" class="pill" data-verdict="confirmed" data-sid="' + s.id + '" aria-pressed="' + (s.verdict === "confirmed") + '">Подтверждаю</button><button type="button" class="pill" data-verdict="false_alarm" data-sid="' + s.id + '" aria-pressed="' + (s.verdict === "false_alarm") + '">Ложная тревога</button></span>';
         h += "</div>";
       });
       h += "</section>";
