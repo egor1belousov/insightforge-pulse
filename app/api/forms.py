@@ -4,7 +4,7 @@ import asyncio
 import json
 import random
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -146,7 +146,9 @@ def forms_status(user: User = Depends(require_role(*HR_ONLY)), db: Session = Dep
 
 
 @router.post("/forms/yandex/webhook")
-async def yandex_webhook(request: Request, token: str = "", db: Session = Depends(get_db)) -> dict:
+async def yandex_webhook(
+    request: Request, background: BackgroundTasks, token: str = "", db: Session = Depends(get_db)
+) -> dict:
     """Вебхук Яндекс Формы: организация определяется по секрету в адресе."""
     org = integrations.org_by_secret(db, "yandex", token)
     if org is None and get_settings().yandex_webhook_secret and token == get_settings().yandex_webhook_secret:
@@ -165,13 +167,26 @@ async def yandex_webhook(request: Request, token: str = "", db: Session = Depend
     except json.JSONDecodeError:
         fields = connectors.parse_mail_body(raw)
     integrations.log(db, org, "yandex", f"Вебхук получен: {raw[:160]}")
-    try:
-        ev = connectors.deliver(db, org, fields, "yandex")
-    except SubmitError as e:
-        integrations.log(db, org, "yandex", f"Ответ не принят: {e}", ok=False)
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-    integrations.log(db, org, "yandex", f"Ответ по вебхуку: {ev['pair']}, получателей: {ev['delivered']}")
-    return {"ok": True, "pair": ev["pair"], "message": ev["message"]}
+    if not connectors.find_id(fields):
+        integrations.log(db, org, "yandex", "Ответ не принят: в форме нет ID участника", ok=False)
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "В ответе формы не найден ID участника или рабочая почта."
+        )
+    # Яндекс ждёт ответа 5 секунд: раскладываем ответ по организациям уже после ответа
+    background.add_task(_deliver_webhook, org, fields)
+    return {"ok": True, "message": "Ответ принят"}
+
+
+def _deliver_webhook(org: int, fields: dict) -> None:
+    from app.db.session import SessionLocal
+
+    with SessionLocal() as db:
+        try:
+            ev = connectors.deliver(db, org, fields, "yandex")
+        except SubmitError as e:
+            integrations.log(db, org, "yandex", f"Ответ не принят: {e}", ok=False)
+            return
+        integrations.log(db, org, "yandex", f"Ответ по вебхуку: {ev['pair']}, получателей: {ev['delivered']}")
 
 
 @router.post("/demo/test-response")
