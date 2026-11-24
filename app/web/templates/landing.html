@@ -10,13 +10,13 @@
     <header class="top">
       <div class="row nowrap" style="gap:12px"><div class="mgts">МГТС</div><div class="if">IF</div><span class="sep"></span><span class="brand-name">Пульс адаптации</span></div>
       <nav aria-label="Разделы главной"><a href="#types">Сигналы</a><a href="#how">Как работает</a><a href="#roles">Роли</a></nav>
-      <div class="row nowrap" style="gap:12px">{% include "_theme_toggle.html" %}<a class="white-btn" href="/login">Войти <span aria-hidden="true">→</span></a></div>
+      <div class="row nowrap" style="gap:12px">{% include "_theme_toggle.html" %}{% if real_user %}<a class="white-btn" href="{{ real_user.home }}">В кабинет <span aria-hidden="true">→</span></a>{% else %}<a class="white-btn" href="/login">Войти <span aria-hidden="true">→</span></a>{% endif %}</div>
     </header>
     <div class="center">
       <p class="kicker">ПРОГРАММА СТАЖИРОВОК · МГТС</p>
       <h1 data-split>Два взгляда на одну стажировку</h1>
       <p class="lead">Стажёр и наставник раз в месяц отвечают на короткую анкету. Мы видим, где их оценки расходятся, объясняем почему и подсказываем HR действие, пока проблему можно решить разговором.</p>
-      <div class="row cta-row"><a class="cta" href="{% if demo %}/demo/hr{% else %}/login{% endif %}">{% if demo %}Открыть демо{% else %}Войти в систему{% endif %} <span aria-hidden="true">→</span></a>{% if demo %}<a class="demo-link" href="/login">Войти по почте и паролю</a>{% endif %}</div>
+      <div class="row cta-row">{% if real_user %}<a class="cta" href="{{ real_user.home }}">В кабинет · {{ real_user.name }} <span aria-hidden="true">→</span></a>{% if demo %}<a class="demo-link" href="/demo/hr" data-demo-switch>Открыть демо</a>{% endif %}{% else %}<a class="cta" href="{% if demo %}/demo/hr{% else %}/login{% endif %}">{% if demo %}Открыть демо{% else %}Войти в систему{% endif %} <span aria-hidden="true">→</span></a>{% if demo %}<a class="demo-link" href="/login">Войти по почте и паролю</a>{% endif %}{% endif %}</div>
     </div>
     <div class="glass g1"><p class="gk">01 / АНКЕТА</p><b>Два взгляда раз в месяц</b><p>Стажёр и наставник отвечают на шесть зеркальных вопросов за две минуты.</p></div>
     <div class="glass g2"><p class="gk">02 / СИГНАЛ</p><b>Расхождение с причиной</b><p>Уровень, тренд, запаздывание, слова ≠ цифры — у каждого типа своё действие.</p></div>
@@ -62,7 +62,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:28px">
       {% for r in roles %}
       <div class="tile"><p class="xs" style="color:var(--accent);font-weight:600;letter-spacing:.06em">{{ r.tag }}</p><h3 style="font-size:18px">{{ r.label }}</h3><p class="small muted grow" style="line-height:1.55">{{ r.desc }}</p>
-        <a href="{% if demo %}/demo/{{ r.key }}{% else %}/login{% endif %}" style="border-top:1px solid var(--line);padding-top:14px;font-size:13px;font-weight:600;color:var(--ink);min-height:44px;display:flex;justify-content:space-between;text-decoration:none">Войти как {{ r.short }} <span>→</span></a></div>
+        <a href="{% if demo %}/demo/{{ r.key }}{% else %}/login{% endif %}"{% if real_user and demo %} data-demo-switch{% endif %} style="border-top:1px solid var(--line);padding-top:14px;font-size:13px;font-weight:600;color:var(--ink);min-height:44px;display:flex;justify-content:space-between;text-decoration:none">Войти как {{ r.short }} <span>→</span></a></div>
       {% endfor %}
     </div>
   </section>
@@ -70,3 +70,9 @@
   <footer><div class="in"><div class="orb st-orb of" data-orb="mesh" data-size="520" aria-hidden="true"></div><div style="position:relative"><p class="head" style="font-size:clamp(22px,2.6vw,34px);color:#fff">Наставнику — время, HR — ясность</p><p class="small" style="margin-top:10px;color:#9AA6C6">Команда InsightForge · кейс-чемпионат «Код города» · данные анонимны, ИИ работает локально</p></div><a class="white-btn" href="{% if demo %}/demo/hr{% else %}/login{% endif %}" style="font-size:15px;min-height:48px;position:relative">{% if demo %}Открыть демо{% else %}Войти{% endif %} <span aria-hidden="true">→</span></a></div></footer>
 </div>
 {% endblock %}
+{% block scripts %}{% if real_user %}<script>
+  // Переход в демо из рабочего аккаунта — только с подтверждением
+  document.querySelectorAll("[data-demo-switch]").forEach((a) => a.addEventListener("click", (e) => {
+    if (!confirm("Вы вошли как {{ real_user.name|e }}. Демо откроется в отдельной демо-копии, и вы выйдете из своего аккаунта. Продолжить?")) e.preventDefault();
+  }));
+</script>{% endif %}{% endblock %}

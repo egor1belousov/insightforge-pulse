@@ -488,3 +488,5 @@ a.signal-btn:hover, .tile:hover { transform: translateY(-2px); box-shadow: 0 10p
   .topbar .theme-toggle .tt-knob { display: none; }
   .topbar .theme-toggle[aria-checked="false"] .tt-moon, .topbar .theme-toggle[aria-checked="true"] .tt-sun { display: none; }
 }
+.demo-chip { display: inline-flex; align-items: center; vertical-align: 2px; margin-left: 4px; font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--over-fg); background: var(--over-bg); border: 1px solid color-mix(in srgb, var(--over) 40%, transparent); border-radius: 999px; padding: 1px 7px; }
+.start-step.done { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); } .start-step.done .eyebrow { color: var(--ok-fg); }

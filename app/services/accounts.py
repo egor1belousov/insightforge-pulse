@@ -59,6 +59,14 @@ def ensure_topics(db: Session, organization_id: int) -> None:
             db.add(Topic(organization_id=organization_id, code=code, name=name))
 
 
+def default_questionnaires(db: Session, program: Program) -> None:
+    """Стандартная анкета потока: шесть зеркальных вопросов стажёру и наставнику по темам и комментарий."""
+    from app.seed import demo_schema
+    from app.services.ingest.persist import save_questionnaires
+
+    save_questionnaires(db, program, {"questionnaires": demo_schema()["questionnaires"], "pairs": []})
+
+
 def register_hr(
     db: Session, *, name: str, email: str, password: str, organization: str, program: str
 ) -> User:
@@ -80,6 +88,7 @@ def register_hr(
     db.add(prog)
     db.flush()
     ensure_topics(db, org.id)
+    default_questionnaires(db, prog)
     user = User(
         email=email,
         password_hash=hash_password(password),

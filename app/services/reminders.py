@@ -15,13 +15,32 @@ from app.services.dashboard import periods_of
 log = logging.getLogger("pulse.reminders")
 
 
-def pending(db: Session, program: Program, period: int) -> list[Participant]:
-    """Участники пар потока, не заполнившие анкету месяца."""
-    got = {r.participant_id for r in db.query(Response).filter(Response.period == period)}
-    out = []
+def roster(db: Session, program: Program) -> list[tuple[Participant, str]]:
+    """Все, кому положена анкета: участники пар и те, кого ещё не поставили в пару."""
+    out: list[tuple[Participant, str]] = []
+    seen: set[int] = set()
     for pr in db.query(Pair).filter(Pair.program_id == program.id).order_by(Pair.code):
-        out += [p for p in (pr.intern, pr.mentor) if p.id not in got]
+        for p in (pr.intern, pr.mentor):
+            if p.id not in seen:
+                out.append((p, pr.code))
+                seen.add(p.id)
+    rest = (
+        db.query(Participant)
+        .filter(Participant.program_id == program.id, Participant.id.notin_(seen or {-1}))
+        .order_by(Participant.side.desc(), Participant.external_id)
+    )
+    out += [(p, "без пары") for p in rest if p.user_id or p.id in _answered(db, p.id)]
     return out
+
+
+def _answered(db: Session, pid: int) -> set[int]:
+    return {pid} if db.query(Response.id).filter(Response.participant_id == pid).first() else set()
+
+
+def pending(db: Session, program: Program, period: int) -> list[Participant]:
+    """Участники потока, не заполнившие анкету месяца."""
+    got = {r.participant_id for r in db.query(Response).filter(Response.period == period)}
+    return [p for p, _ in roster(db, program) if p.id not in got]
 
 
 def run_program(db: Session, program: Program, now: datetime | None = None) -> dict:

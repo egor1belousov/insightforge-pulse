@@ -50,7 +50,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "13"
+ASSET_V = "14"
 
 
 def home_for(user: User) -> str:
@@ -98,6 +98,7 @@ def app_page(
         "program_name": (db.get(Program, user.program_id).name if user.program_id else "")
         if user.role in ("hr", "lead")
         else "",
+        "demo": is_demo_user(db, user),
     }
     nav = [{"key": k, "label": label, "url": url, "badge": None} for k, label, url in NAV[user.role]]
     return render(request, template, me=me, nav=nav, active=active, home_url=home_for(user), **ctx)
@@ -193,9 +194,28 @@ LANDING_ROLES = [
 ]
 
 
+def is_demo_user(db: Session, user: User) -> bool:
+    """Пользователь из демо: песочница или основная демо-организация."""
+    from app.db.models import Organization
+    from app.services import integrations
+
+    org = db.get(Organization, user.organization_id)
+    return bool(org and (org.sandbox_token or org.id == integrations.demo_template(db)))
+
+
 @router.get("/")
-def landing(request: Request) -> Response:
-    return render(request, "landing.html", roles=LANDING_ROLES, demo=get_settings().demo_mode)
+def landing(
+    request: Request, db: Session = Depends(get_db), user: User | None = Depends(current_user_optional)
+) -> Response:
+    # рабочий аккаунт не должен незаметно смениться демо-аккаунтом
+    real = user is not None and not is_demo_user(db, user)
+    return render(
+        request,
+        "landing.html",
+        roles=LANDING_ROLES,
+        demo=get_settings().demo_mode,
+        real_user={"name": user.name, "home": home_for(user)} if real else None,
+    )
 
 
 @router.get("/register")
