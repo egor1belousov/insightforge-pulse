@@ -43,6 +43,7 @@ KINDS: dict[str, dict] = {
         ],
     },
     "yandex_mail": {
+        "hidden": True,  # запасной канал для личных форм, в интерфейсе не показываем
         "title": "Яндекс Форма — письмом",
         "desc": "Для личной формы: форма присылает ответ на почту, Пульс забирает его по IMAP",
         "fields": [
@@ -189,6 +190,8 @@ def public(db: Session, org: int, base_url: str = "") -> dict:
     """Состояние всех интеграций для экрана: без секретов."""
     out = {}
     for kind, meta in KINDS.items():
+        if meta.get("hidden"):
+            continue
         cfg = config(db, org, kind)
         logrow = _row(db, org, f"intlog_{kind}")
         item = {

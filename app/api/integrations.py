@@ -35,7 +35,7 @@ def connect(
     user: User = Depends(require_role(*HR_ONLY)),
     db: Session = Depends(get_db),
 ) -> dict:
-    if kind not in integrations.KINDS:
+    if kind not in integrations.KINDS or integrations.KINDS[kind].get("hidden"):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Нет такой интеграции.")
     try:
         integrations.connect(db, _org(user), kind, data)
@@ -58,7 +58,7 @@ def disconnect(
 @router.post("/integrations/{kind}/sync")
 def sync(kind: str, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)) -> dict:
     """Забрать ответы формы прямо сейчас, не дожидаясь опроса."""
-    if kind not in ("yandex", "google", "yandex_mail"):
+    if kind not in ("yandex", "google"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Синхронизация есть только у форм.")
     cfg = integrations.config(db, _org(user), kind)
     if not cfg:
