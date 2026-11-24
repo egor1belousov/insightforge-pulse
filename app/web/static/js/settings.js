@@ -14,7 +14,7 @@
   const ICONS = { yandex: "Я", google: "G", smtp: "@", telegram: "✈" };
   function intCard() {
     let h = '<p class="eyebrow">Интеграции</p>';
-    h += Object.values(I).map((x) => '<div class="int-row" id="int-' + x.kind + '"><span class="int-ic">' + ICONS[x.kind] + '</span><span class="grow col" style="gap:3px"><b class="small">' + esc(x.title) + '</b><span class="xs muted">' + esc(x.connected && x.info ? x.info : x.desc) + '</span></span><span class="chip ' + (x.connected ? "ok" : "") + '">' + (x.connected ? "подключено" : "не подключено") + '</span><button type="button" class="btn small" data-int="' + x.kind + '">' + (x.connected ? "Настроить" : "Подключить") + "</button></div>").join("");
+    h += Object.values(I).map((x) => '<div class="int-row" id="int-' + x.kind + '"><span class="int-ic">' + ICONS[x.kind] + '</span><span class="grow col" style="gap:3px"><b class="small">' + esc(x.title) + '</b><span class="xs muted">' + esc(x.connected && x.info ? x.info : x.desc) + '</span></span><span class="int-act"><span class="chip ' + (x.connected ? "ok" : "") + '">' + (x.connected ? "подключено" : "не подключено") + '</span><button type="button" class="btn small" data-int="' + x.kind + '">' + (x.connected ? "Настроить" : "Подключить") + "</button></span></div>").join("");
     return h + '<p class="xs muted">Токены хранятся на сервере компании и не показываются целиком. Каждое подключение проверяется настоящим запросом к сервису.</p>';
   }
   function openInt(kind) {
