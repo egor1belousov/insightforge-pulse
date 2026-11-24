@@ -629,3 +629,12 @@ img, video, canvas, svg { max-width: 100%; }
 }
 @media (max-width: 767px) { .stream-btn { min-width: 0; } .stream-btn > span:first-child { min-width: 0; } .demo-narrow { flex-shrink: 0; } }
 @media (pointer: coarse) { .profile-btn { min-width: 44px; justify-content: center; } }
+/* тач: остатки мелких целей из аудита */
+@media (pointer: coarse) {
+  .brand { padding: 4px; margin: -4px; }
+  table.tbl a, .chip[href], a.chip { display: inline-flex; align-items: center; min-height: 44px; }
+  .dash-pin { min-height: 44px !important; min-width: 52px !important; }
+}
+.signal-btn .grow, .list-row .grow { overflow-wrap: anywhere; }
+.row.nowrap > .grow { overflow-wrap: anywhere; }
+@media (max-width: 360px) { #f-month + .row span { font-size: 12px; letter-spacing: -0.01em; } #f-month + .row { gap: 2px; } }
