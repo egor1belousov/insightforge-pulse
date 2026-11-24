@@ -81,15 +81,48 @@ def parse_yandex_answer(item: dict) -> tuple[str, dict[str, Any]]:
     return aid, fields
 
 
-def fetch_yandex(cfg: dict) -> list[tuple[str, dict]]:
-    """Ответы Яндекс Формы по API."""
+def _yandex_value(v: Any) -> Any:
+    if isinstance(v, list):
+        return ", ".join(
+            str(x.get("label") or x.get("text") or x) if isinstance(x, dict) else str(x) for x in v
+        )
+    if isinstance(v, dict):
+        return v.get("label") or v.get("text") or v.get("value")
+    return v
+
+
+def parse_yandex_page(payload: dict) -> list[tuple[str, dict]]:
+    """Страница ответов API: подписи вопросов в columns, значения в answers[].data по позициям."""
+    cols = [c.get("text") or c.get("slug") or str(c.get("id")) for c in payload.get("columns") or []]
+    out = []
+    for a in payload.get("answers") or []:
+        data = a.get("data")
+        if isinstance(data, dict):  # формат raw: {код вопроса: {value}}
+            fields = {k: _yandex_value(v.get("value") if isinstance(v, dict) else v) for k, v in data.items()}
+        else:
+            fields = {
+                (cols[i] if i < len(cols) else f"вопрос {i + 1}"): _yandex_value((d or {}).get("value"))
+                for i, d in enumerate(data or [])
+            }
+        out.append((str(a.get("id")), fields))
+    return out
+
+
+def fetch_yandex(cfg: dict, pages: int = 20) -> list[tuple[str, dict]]:
+    """Ответы Яндекс Формы по API, с переходом по страницам next.next_url."""
     s = get_settings()
-    url = f"{s.yandex_forms_api}/surveys/{cfg['form_id']}/answers"
-    r = httpx.get(url, headers={"Authorization": f"OAuth {cfg['token']}"}, timeout=15)
-    r.raise_for_status()
-    payload = r.json()
-    items = payload.get("answers") or payload.get("items") or (payload if isinstance(payload, list) else [])
-    return [parse_yandex_answer(i) for i in items]
+    url = f"{s.yandex_forms_api}/surveys/{cfg['form_id']}/answers?page_size=100"
+    out: list[tuple[str, dict]] = []
+    for _ in range(pages):
+        r = httpx.get(url, headers=integrations.yandex_headers(cfg), timeout=15)
+        r.raise_for_status()
+        payload = r.json()
+        out += parse_yandex_page(payload)
+        nxt = (payload.get("next") or {}).get("next_url")
+        if not nxt:
+            break
+        url = nxt if nxt.startswith("http") else s.yandex_forms_api.rstrip("/") + nxt.removeprefix("/v1")
+    return out
 
 
 def _google_token(creds: dict) -> str:

@@ -6,6 +6,7 @@
 """
 
 import json
+import re
 import secrets
 import smtplib
 import ssl
@@ -18,18 +19,27 @@ from sqlalchemy.orm import Session
 from app.core.settings import get_settings
 from app.db.models import AppSetting
 
+OPTIONAL = {"org_id"}
+FORM_ID_RE = re.compile(r"[a-fA-F\d]{24}")
+
 KINDS: dict[str, dict] = {
     "yandex": {
         "title": "Яндекс Формы",
-        "desc": "Ответы анкеты приходят сами: вебхук и опрос по API",
+        "desc": "Ответы анкеты приходят сами: опрос по API каждые 15 секунд и вебхук",
         "fields": [
             (
                 "token",
                 "OAuth-токен",
                 True,
-                "Яндекс ID → oauth.yandex.ru, доступ «Яндекс Формы: чтение ответов»",
+                "oauth.yandex.ru → приложение с доступом «Просмотр настроек форм (forms:read)»",
             ),
-            ("form_id", "ID формы", False, "Из адреса формы: forms.yandex.ru/u/<ID>/"),
+            ("form_id", "ID формы", False, "24 символа из адреса формы, можно вставить ссылку целиком"),
+            (
+                "org_id",
+                "ID организации",
+                False,
+                "Для форм Яндекс 360 для бизнеса: tracker.yandex.ru/admin/orgs. Для личной формы оставьте пустым",
+            ),
         ],
     },
     "google": {
@@ -207,18 +217,25 @@ def check(kind: str, cfg: dict) -> str:
         if kind == "yandex":
             s = get_settings()
             r = httpx.get(
-                f"{s.yandex_forms_api}/surveys/{cfg['form_id']}",
-                headers={"Authorization": f"OAuth {cfg['token']}"},
+                f"{s.yandex_forms_api}/surveys/{cfg['form_id']}/answers",
+                params={"page_size": 1},
+                headers=yandex_headers(cfg),
                 timeout=10,
             )
-            if r.status_code in (401, 403):
+            if r.status_code == 401:
                 raise CheckError(
-                    "Яндекс не принял токен: нет доступа к форме. Проверьте права токена и владельца формы."
+                    "Яндекс не принял токен. Получите новый на oauth.yandex.ru и вставьте целиком."
+                )
+            if r.status_code == 403:
+                raise CheckError(
+                    "Нет доступа к ответам формы. Токен должен быть выдан владельцу формы; "
+                    "для формы организации укажите ID организации."
                 )
             if r.status_code == 404:
-                raise CheckError("Форма с таким ID не найдена.")
+                raise CheckError("Форма с таким ID не найдена у этого аккаунта.")
             r.raise_for_status()
-            return (r.json().get("name") or r.json().get("title") or "форма " + cfg["form_id"])[:80]
+            cols = r.json().get("columns") or []
+            return f"форма …{cfg['form_id'][-6:]}, вопросов: {len(cols)}"
         if kind == "google":
             from app.services.forms.connectors import _google_token
 
@@ -263,6 +280,14 @@ def connect(db: Session, org: int, kind: str, data: dict) -> dict:
             v = old.get(f, "")
         if not v and f == "port":
             v = "587"
+        if f == "form_id" and kind == "yandex":
+            m = FORM_ID_RE.search(v)
+            if not m:
+                raise CheckError("ID формы — 24 символа из адреса формы (буквы a–f и цифры).")
+            v = m.group(0)
+        if not v and f in OPTIONAL:
+            cfg[f] = ""
+            continue
         if not v:
             raise CheckError(f"Заполните поле «{label}».")
         cfg[f] = v
@@ -276,6 +301,14 @@ def connect(db: Session, org: int, kind: str, data: dict) -> dict:
 def disconnect(db: Session, org: int, kind: str) -> None:
     _put(db, org, f"int_{kind}", {"connected": False})
     log(db, org, kind, "Отключено")
+
+
+def yandex_headers(cfg: dict) -> dict:
+    """Заголовки API Яндекс Форм: OAuth и, для формы организации, X-Org-Id."""
+    h = {"Authorization": f"OAuth {cfg['token']}"}
+    if cfg.get("org_id"):
+        h["X-Org-Id"] = str(cfg["org_id"])
+    return h
 
 
 def _smtp(cfg: dict) -> smtplib.SMTP:

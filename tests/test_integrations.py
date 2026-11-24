@@ -137,3 +137,48 @@ def test_sandboxes_share_demo_bot_and_route_by_link(demo, monkeypatch) -> None: 
         # чат перепривязан ко второй песочнице, из первой убран
         assert telegram.chat_of(db, a.id, pa.id) is None
         assert telegram.route(db, "T", {"message": {"chat": {"id": 5}, "text": "привет"}}) == b.id
+
+
+def test_yandex_answers_page_maps_columns_to_values() -> None:
+    from app.services.forms.connectors import parse_yandex_page
+
+    page = {
+        "columns": [
+            {"id": 1, "text": "Ваш ID"},
+            {"id": 2, "text": "Насколько понятны задачи?"},
+            {"id": 3, "text": "Что мешает?"},
+        ],
+        "answers": [
+            {
+                "id": 77,
+                "data": [
+                    {"value": "С-104"},
+                    {"value": 7},
+                    {"value": [{"label": "нагрузка"}, {"label": "сроки"}]},
+                ],
+            }
+        ],
+        "next": {"next_url": None},
+    }
+    assert parse_yandex_page(page) == [
+        ("77", {"Ваш ID": "С-104", "Насколько понятны задачи?": 7, "Что мешает?": "нагрузка, сроки"})
+    ]
+
+
+def test_yandex_form_id_from_link(demo, monkeypatch) -> None:  # noqa: F811
+    hr = login("hr@pulse.demo")
+    monkeypatch.setattr(integrations, "check", lambda kind, cfg: "форма …a9cc, вопросов: 7")
+    r = hr.post(
+        "/api/integrations/yandex",
+        json={
+            "token": "y0_x",
+            "form_id": "https://forms.yandex.ru/u/6800cd9202848f10b272a9cc/",
+            "org_id": "",
+        },
+        headers=csrf_headers(hr),
+    ).json()
+    assert r["connected"] and r["fields"][1]["value"] == "6800cd9202848f10b272a9cc"
+    bad = hr.post(
+        "/api/integrations/yandex", json={"token": "y0_x", "form_id": "abc"}, headers=csrf_headers(hr)
+    )
+    assert bad.status_code == 400 and "24 символа" in bad.json()["detail"]
