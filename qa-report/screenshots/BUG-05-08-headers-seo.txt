@@ -1,0 +1,20 @@
+$ curl -sI https://mgtspulse.ru/login
+HTTP/2 405 
+allow: GET
+alt-svc: h3=":443"; ma=2592000
+content-type: application/json
+date: Tue, 24 Nov 2026 21:29:55 GMT
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000
+x-content-type-options: nosniff
+content-length: 31
+
+
+$ curl -sI -X HEAD https://mgtspulse.ru/
+HTTP/2 405 
+$ curl -s https://mgtspulse.ru/robots.txt
+{"detail":"Not Found"}  [HTTP 404]
+$ curl -s https://mgtspulse.ru/sitemap.xml
+{"detail":"Not Found"}  [HTTP 404]
+$ curl -s https://mgtspulse.ru/favicon.ico
+{"detail":"Not Found"}  [HTTP 404]

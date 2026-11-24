@@ -1,0 +1,233 @@
+{
+ "anon /": [
+  {
+   "id": "color-contrast",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": ".mgts",
+     "html": "<div class=\"mgts\">МГТС</div>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 5.3pt (7px), font weight: "
+    },
+    {
+     "t": ".tile.rv.rv-in:nth-child(1) > .xs",
+     "html": "<p class=\"xs\" style=\"color:var(--accent);font-weight:600;letter-spacing:.06em\">ВИДИТ ВСЁ</",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".tile.rv.rv-in:nth-child(2) > .xs",
+     "html": "<p class=\"xs\" style=\"color:var(--accent);font-weight:600;letter-spacing:.06em\">ВИДИТ ВСЁ, ",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".tile.rv.rv-in:nth-child(3) > .xs",
+     "html": "<p class=\"xs\" style=\"color:var(--accent);font-weight:600;letter-spacing:.06em\">ТОЛЬКО СВОЯ",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".tile.rv.rv-in:nth-child(4) > .xs",
+     "html": "<p class=\"xs\" style=\"color:var(--accent);font-weight:600;letter-spacing:.06em\">ТОЛЬКО СВОЯ",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    }
+   ]
+  }
+ ],
+ "anon /login": [
+  {
+   "id": "color-contrast",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": "a[href$=\"register\"]",
+     "html": "<a href=\"/register\">здесь</a>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    }
+   ]
+  }
+ ],
+ "hr /dashboard": [
+  {
+   "id": "aria-progressbar-name",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": "div[aria-valuemax=\"6\"]",
+     "html": "<div class=\"prog-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"6\" aria-valuen",
+     "msg": "aria-label attribute does not exist or is empty"
+    },
+    {
+     "t": "div[aria-valuemax=\"10\"]",
+     "html": "<div class=\"prog-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"10\" aria-value",
+     "msg": "aria-label attribute does not exist or is empty"
+    },
+    {
+     "t": "div[aria-valuemax=\"5\"]",
+     "html": "<div class=\"prog-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"5\" aria-valuen",
+     "msg": "aria-label attribute does not exist or is empty"
+    }
+   ]
+  },
+  {
+   "id": "color-contrast",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": ".between.nowrap.row > span:nth-child(6)",
+     "html": "<span style=\"color:#0A7CD6;font-weight:700\">Ноя</span>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": "section[data-w=\"tasks\"] > .nowrap.row:nth-child(1) > .eyebrow.grow",
+     "html": "<p class=\"eyebrow grow\">Мои задачи на неделю · 0 из 6</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": "a[href=\"/pairs?id=2785&tab=act\"]",
+     "html": "<a class=\"btn ghost small\" href=\"/pairs?id=2785&amp;tab=act\">Открыть →</a>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "a[href=\"/pairs?id=2784&tab=act\"]",
+     "html": "<a class=\"btn ghost small\" href=\"/pairs?id=2784&amp;tab=act\">Открыть →</a>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "a[href=\"/pairs?id=2786&tab=act\"]",
+     "html": "<a class=\"btn ghost small\" href=\"/pairs?id=2786&amp;tab=act\">Открыть →</a>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "a[href=\"/pairs?id=2791&tab=act\"]",
+     "html": "<a class=\"btn ghost small\" href=\"/pairs?id=2791&amp;tab=act\">Открыть →</a>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    }
+   ]
+  }
+ ],
+ "hr /forms": [
+  {
+   "id": "aria-progressbar-name",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": ".prog-track",
+     "html": "<div class=\"prog-track\" role=\"progressbar\" aria-valuemin=\"0\" aria-valuemax=\"10\" aria-value",
+     "msg": "aria-label attribute does not exist or is empty"
+    }
+   ]
+  },
+  {
+   "id": "color-contrast",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": ".widgets > .card.rv.rv-in > .between.row > .eyebrow",
+     "html": "<p class=\"eyebrow\">Рассылка за ноябрь · 9 из 10</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": "button[data-answers=\"33052\"]",
+     "html": "<button type=\"button\" class=\"btn ghost small\" data-answers=\"33052\">Ответы</button>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "button[data-answers=\"33058\"]",
+     "html": "<button type=\"button\" class=\"btn ghost small\" data-answers=\"33058\">Ответы</button>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "button[data-answers=\"33064\"]",
+     "html": "<button type=\"button\" class=\"btn ghost small\" data-answers=\"33064\">Ответы</button>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "button[data-answers=\"33070\"]",
+     "html": "<button type=\"button\" class=\"btn ghost small\" data-answers=\"33070\">Ответы</button>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    },
+    {
+     "t": "button[data-answers=\"33076\"]",
+     "html": "<button type=\"button\" class=\"btn ghost small\" data-answers=\"33076\">Ответы</button>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    }
+   ]
+  }
+ ],
+ "hr /settings": [
+  {
+   "id": "color-contrast",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": ".int-card > .eyebrow",
+     "html": "<p class=\"eyebrow\">Интеграции</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": "#llm-card > .between.row:nth-child(1) > .eyebrow",
+     "html": "<p class=\"eyebrow\">ИИ-модель</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".card.rv.rv-in:nth-child(3) > .eyebrow",
+     "html": "<p class=\"eyebrow\">Правила оповещений · превью «сработало бы сейчас»</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".card.rv.rv-in:nth-child(4) > .between.row > .eyebrow",
+     "html": "<p class=\"eyebrow\">Пороги сигналов и веса индекса</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".card.rv.rv-in:nth-child(5) > .eyebrow",
+     "html": "<p class=\"eyebrow\">Команда и доступ</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".ghost",
+     "html": "<button type=\"button\" class=\"btn ghost small\" data-rm-user=\"2251\" data-name=\"Олег Петров\">",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.8pt (13px), font weight:"
+    }
+   ]
+  },
+  {
+   "id": "select-name",
+   "impact": "critical",
+   "nodes": [
+    {
+     "t": "#nu-role",
+     "html": "<select class=\"input small\" id=\"nu-role\" style=\"width:auto\"><option value=\"lead\">Руководит",
+     "msg": "Element does not have an implicit (wrapped) <label>"
+    }
+   ]
+  }
+ ],
+ "intern /me": [
+  {
+   "id": "color-contrast",
+   "impact": "serious",
+   "nodes": [
+    {
+     "t": ".between.row > .eyebrow",
+     "html": "<p class=\"eyebrow\">Анкета за ноябрь</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".card.rv.rv-in:nth-child(1) > .eyebrow",
+     "html": "<p class=\"eyebrow\">Темы для разговора</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": ".widgets:nth-child(4) > .card.rv.rv-in:nth-child(2) > .eyebrow",
+     "html": "<p class=\"eyebrow\">Хочу поговорить с HR</p>",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #0a7cd6, background color: #ffffff, font size: 9.0pt (12px), font weight:"
+    },
+    {
+     "t": "button[data-t=\"Нагрузка\"]",
+     "html": "<button type=\"button\" class=\"pill accent\" data-t=\"Нагрузка\" aria-pressed=\"true\">Нагрузка</",
+     "msg": "Element has insufficient color contrast of 4.31 (foreground color: #ffffff, background color: #0a7cd6, font size: 9.8pt (13px), font weight:"
+    }
+   ]
+  }
+ ]
+}
