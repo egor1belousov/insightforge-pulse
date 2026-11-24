@@ -1,5 +1,7 @@
 # Сервер-посредник: HTTPS для домена, запросы уходят по SSH-туннелю на ноутбук
 {$DOMAIN} {
+	# Готовый сертификат (make edge-cert); пока файла нет, Caddy получает сертификат у Let's Encrypt сам
+	import /etc/caddy/tls.d/*
 	encode zstd gzip
 	reverse_proxy 127.0.0.1:8000 {
 		# SSE: события отдаём сразу, без буферизации
@@ -21,5 +23,6 @@
 
 # www.домен → домен (нужна A-запись www на тот же IP)
 www.{$DOMAIN} {
+	import /etc/caddy/tls.d/*
 	redir https://{$DOMAIN}{uri} permanent
 }

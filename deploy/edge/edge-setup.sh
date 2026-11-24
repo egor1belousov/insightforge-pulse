@@ -47,6 +47,7 @@ sshd -t
 systemctl reload ssh 2>/dev/null || systemctl reload sshd
 
 install -m 644 "$HERE/Caddyfile" /etc/caddy/Caddyfile
+mkdir -p /etc/caddy/tls.d
 mkdir -p /etc/systemd/system/caddy.service.d
 printf '[Service]\nEnvironment=DOMAIN=%s\n' "$DOMAIN" > /etc/systemd/system/caddy.service.d/domain.conf
 systemctl daemon-reload
