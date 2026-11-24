@@ -58,7 +58,7 @@ def disconnect(
 @router.post("/integrations/{kind}/sync")
 def sync(kind: str, user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(get_db)) -> dict:
     """Забрать ответы формы прямо сейчас, не дожидаясь опроса."""
-    if kind not in ("yandex", "google"):
+    if kind not in ("yandex", "google", "yandex_mail"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Синхронизация есть только у форм.")
     cfg = integrations.config(db, _org(user), kind)
     if not cfg:

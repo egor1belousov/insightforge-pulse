@@ -182,3 +182,47 @@ def test_yandex_form_id_from_link(demo, monkeypatch) -> None:  # noqa: F811
         "/api/integrations/yandex", json={"token": "y0_x", "form_id": "abc"}, headers=csrf_headers(hr)
     )
     assert bad.status_code == 400 and "24 символа" in bad.json()["detail"]
+
+
+def test_mail_body_plain_and_json() -> None:
+    from app.services.forms.connectors import parse_mail_body
+
+    plain = "Ваш ID:\nС-104\nНасколько понятны задачи, которые вы получаете?: 7\nКомментарий: что получается и что мешает?\nНе хватает времени"
+    f = parse_mail_body(plain)
+    assert f["Ваш ID"] == "С-104" and f["Насколько понятны задачи, которые вы получаете?"] == "7"
+    assert f["Комментарий"].startswith("что получается") or "Не хватает времени" in " ".join(f.values())
+    js = 'Ответ формы {"Ваш ID": "С-104", "Комфортен ли для вас объём задач?": "5"}'
+    assert parse_mail_body(js) == {"Ваш ID": "С-104", "Комфортен ли для вас объём задач?": "5"}
+
+
+def test_mail_answers_reach_participant(demo, monkeypatch) -> None:  # noqa: F811
+    from app.services.forms import connectors
+
+    qs = [
+        "Насколько понятны задачи, которые вы получаете?",
+        "Можете ли вы выполнять задачи без помощи наставника?",
+        "Хватает ли вам времени и внимания наставника?",
+        "Комфортен ли для вас объём задач?",
+        "Получаете ли вы обратную связь по своей работе?",
+        "Насколько вам понятны ваши перспективы после стажировки?",
+    ]
+    body = (
+        "Ваш ID: С-104\n"
+        + "\n".join(f"{q}: 4" for q in qs)
+        + "\nКомментарий: что получается и что мешает?: Нагрузка большая"
+    )
+    monkeypatch.setattr(
+        connectors, "fetch_mail", lambda cfg, limit=50: [("<m1@ya>", connectors.parse_mail_body(body))]
+    )
+    with SessionLocal() as db:
+        prog = db.query(Program).first()
+        cfg = {"email": "x@yandex.ru", "password": "p", "connected": True}
+        assert connectors.poll(db, prog.id, "yandex_mail", cfg) == 1
+        assert connectors.poll(db, prog.id, "yandex_mail", cfg) == 0  # письмо не загружается дважды
+        part = db.query(Participant).filter(Participant.external_id == "С-104").one()
+        assert (
+            db.query(Response)
+            .filter(Response.participant_id == part.id, Response.source == "yandex_mail")
+            .count()
+            == 1
+        )

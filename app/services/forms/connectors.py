@@ -125,6 +125,86 @@ def fetch_yandex(cfg: dict, pages: int = 20) -> list[tuple[str, dict]]:
     return out
 
 
+MAIL_SUBJECT = "пульс"
+
+
+def parse_mail_body(text: str) -> dict:
+    """Тело письма формы → {подпись вопроса: ответ}: JSON или строки «Вопрос: ответ»."""
+    start = text.find("{")
+    if start != -1:
+        try:
+            data = json.loads(text[start : text.rfind("}") + 1])
+        except json.JSONDecodeError:
+            data = None
+        if isinstance(data, dict):
+            _, fields = parse_yandex_answer(data)
+            flat = {k: v for k, v in fields.items() if not isinstance(v, (dict, list))}
+            if flat:
+                return flat
+    fields: dict[str, Any] = {}
+    last = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if ":" in line:
+            # «Вопрос?: ответ» — делим по вопросительному знаку, иначе по первому двоеточию
+            cut = line.find("?:")
+            k, v = (line[: cut + 1], line[cut + 2 :]) if cut != -1 else line.split(":", 1)
+            if k.strip() and len(k) < 160:
+                last = k.strip()
+                fields[last] = v.strip()
+                continue
+        if last is not None and not fields[last]:
+            fields[last] = line  # ответ на следующей строке
+        elif last is not None:
+            fields[last] += " " + line
+    return fields
+
+
+def _mail_text(msg) -> str:
+    import html as html_lib
+    import re as re_
+
+    parts = msg.walk() if msg.is_multipart() else [msg]
+    plain, rich = "", ""
+    for part in parts:
+        ctype = part.get_content_type()
+        if ctype not in ("text/plain", "text/html"):
+            continue
+        payload = part.get_payload(decode=True) or b""
+        text = payload.decode(part.get_content_charset() or "utf-8", errors="ignore")
+        if ctype == "text/plain":
+            plain += text
+        else:
+            text = re_.sub(r"<br\s*/?>|</p>|</div>|</tr>", "\n", text, flags=re_.I)
+            rich += html_lib.unescape(re_.sub(r"<[^>]+>", "", text))
+    return plain or rich
+
+
+def fetch_mail(cfg: dict, limit: int = 50) -> list[tuple[str, dict]]:
+    """Письма формы из ящика: тема содержит «Пульс». Ключ — Message-ID."""
+    import email
+    import imaplib
+    from email.header import decode_header, make_header
+
+    m = imaplib.IMAP4_SSL("imap.yandex.ru", 993, timeout=15)
+    m.login(cfg["email"], cfg["password"])
+    m.select("INBOX")
+    _, ids = m.search(None, "ALL")
+    out = []
+    for num in (ids[0].split() if ids and ids[0] else [])[-limit:]:
+        _, data = m.fetch(num, "(BODY.PEEK[])")
+        msg = email.message_from_bytes(data[0][1])
+        subject = str(make_header(decode_header(msg.get("Subject", ""))))
+        if MAIL_SUBJECT not in subject.lower():
+            continue
+        mid = msg.get("Message-ID") or f"{cfg['email']}:{num.decode()}"
+        out.append((mid, parse_mail_body(_mail_text(msg))))
+    m.logout()
+    return out
+
+
 def _google_token(creds: dict) -> str:
     r = httpx.post(
         "https://oauth2.googleapis.com/token",
@@ -184,7 +264,7 @@ def poll(db, program_id: int | None, kind: str, cfg: dict, org: int | None = Non
     """Забирает новые ответы формы организации. Возвращает число принятых."""
     program = db.get(Program, program_id) if program_id else None
     org = org or (program.organization_id if program else None)
-    items = fetch_yandex(cfg) if kind == "yandex" else fetch_google(cfg)
+    items = {"yandex": fetch_yandex, "google": fetch_google, "yandex_mail": fetch_mail}[kind](cfg)
     key = f"seen_{kind}"
     seen = _seen(db, program, key)
     done = 0
@@ -210,7 +290,7 @@ async def poller() -> None:
                 prog = (
                     db.query(Program).filter(Program.organization_id == org.id).order_by(Program.id).first()
                 )
-                for kind in ("yandex", "google"):
+                for kind in ("yandex", "google", "yandex_mail"):
                     # песочницы демо берут форму основной организации — опрашиваем её один раз
                     cfg = integrations.own(db, org.id, kind) or (
                         {} if org.sandbox_token else integrations.config(db, org.id, kind)
