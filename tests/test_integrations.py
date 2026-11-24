@@ -308,3 +308,9 @@ def test_yandex_webhook_only_mode(demo) -> None:  # noqa: F811
     )
     assert no_id.status_code == 400
     assert hr.post("/api/forms/yandex/webhook?token=wrong", json={}).status_code == 403
+
+
+def test_mail_channel_hidden_from_ui(demo) -> None:  # noqa: F811
+    hr = login("hr@pulse.demo")
+    assert "yandex_mail" not in hr.get("/api/integrations").json()
+    assert hr.post("/api/integrations/yandex_mail", json={}, headers=csrf_headers(hr)).status_code == 404
