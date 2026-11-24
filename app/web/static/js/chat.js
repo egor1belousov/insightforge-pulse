@@ -8,13 +8,12 @@
   const greet = staff ? "Привет! Я вижу данные всех пар, методику и регламент. Спросите, что делать с конкретной парой, кому помочь первым или что не так с программой." : "Привет! Я отвечаю по регламенту стажировки и вашим собственным данным. Ответы другой стороны я не показываю.";
   const msgs = [{ who: "ai", text: greet, refs: [] }];
   const fab = document.createElement("button");
-  fab.type = "button"; fab.className = "btn primary"; fab.id = "chat-fab"; fab.setAttribute("aria-expanded", "false");
-  fab.style.cssText = "position:fixed;right:20px;bottom:20px;z-index:45;min-height:52px;padding:0 20px;box-shadow:0 12px 28px rgba(14,20,36,.28)";
-  fab.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"></path></svg>Спросить ИИ';
+  fab.type = "button"; fab.className = "btn primary ai-fab"; fab.id = "chat-fab"; fab.setAttribute("aria-expanded", "false"); fab.setAttribute("aria-label", "Спросить ИИ-ассистента");
+  fab.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"></path></svg><span class="ai-fab-text">Спросить ИИ</span>';
   document.body.appendChild(fab);
   const panel = document.createElement("section");
   panel.setAttribute("aria-label", "ИИ-ассистент"); panel.hidden = true;
-  panel.style.cssText = "position:fixed;right:20px;bottom:84px;z-index:46;width:min(420px,calc(100vw - 32px));height:min(620px,calc(100vh - 120px));background:var(--bg);border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 60px rgba(14,20,36,.25);display:flex;flex-direction:column;overflow:hidden";
+  panel.className = "ai-panel";
   panel.innerHTML = '<div style="background:#070A14;color:#fff;padding:14px 16px" class="row between nowrap"><div><b>ИИ-ассистент</b><p class="xs" style="color:#9AA6C6">' + (staff ? "данные пар + методика + регламент" : "регламент + ваши данные") + ' · модель работает локально</p></div><button type="button" class="icon-btn" data-close aria-label="Закрыть" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.3)">×</button></div><div id="chat-log" class="col" style="flex:1;overflow:auto;padding:14px;gap:10px" aria-live="polite"></div><div class="row" id="chat-sugg" style="gap:6px;padding:0 14px 8px"></div><form class="row nowrap" id="chat-form" style="padding:10px 14px 14px;gap:8px;background:var(--card);border-top:1px solid var(--line)"><label class="sr-only" for="chat-in">Вопрос</label><input class="input small" id="chat-in" placeholder="Спросите о паре, программе или регламенте" autocomplete="off"><button type="submit" class="btn primary small">→</button></form>';
   document.body.appendChild(panel);
   const log = panel.querySelector("#chat-log"), input = panel.querySelector("#chat-in");

@@ -6,15 +6,15 @@
     <div class="brand-wrap">
       <a class="brand" href="{{ home_url }}" aria-label="Пульс адаптации — на главную раздела"><span class="logo">МГТС</span></a>
       <div class="brand-text">
-        <a class="name" href="{{ home_url }}">Пульс адаптации{% if me.demo %} <span class="demo-chip" title="Демо-копия: данные видите только вы, через 6 часов без входа она удаляется">демо</span>{% endif %}</a>
+        <a class="name" href="{{ home_url }}">Пульс адаптации{% if me.demo %} <span class="demo-chip demo-wide" title="Демо-копия: данные видите только вы, через 6 часов без входа она удаляется">демо</span>{% endif %}</a>
         {% if me.role in ('hr', 'lead') %}
         <button type="button" class="stream-btn" id="stream-btn" aria-expanded="false" aria-haspopup="true" title="Сменить поток стажировки">
-          <span>{{ me.program_name }}</span>
+          <span>{{ me.program_name }}</span>{% if me.demo %}<span class="demo-chip demo-narrow">демо</span>{% endif %}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
         </button>
         <div class="popover stream-pop" id="stream-pop" hidden></div>
         {% else %}
-        <span class="brand-sub">{{ me.role_label }}</span>
+        <span class="brand-sub">{{ me.role_label }}{% if me.demo %} <span class="demo-chip demo-narrow">демо</span>{% endif %}</span>
         {% endif %}
       </div>
     </div>
@@ -48,12 +48,18 @@
         <span class="xs muted">{{ me.email }}</span>
         <span class="xs muted">{{ me.role_label }} · {{ me.scope }}</span>
         {% if me.role == 'hr' %}<a class="btn small" href="/settings" style="justify-content:flex-start;white-space:normal;text-align:left;height:auto;min-height:36px;">Настройки</a>{% endif %}
+        <button type="button" class="btn small menu-theme" data-theme-toggle role="switch" aria-checked="false" style="justify-content:space-between;">Тёмная тема <span class="menu-theme-state" aria-hidden="true"></span></button>
         {% if me.demo %}<p class="xs" style="background:var(--over-bg);color:var(--over-fg);border-radius:10px;padding:8px 10px;line-height:1.45">Вы в демо-копии: приглашения и изменения сохраняются только здесь. Чтобы работать со своей компанией, выйдите и войдите своим аккаунтом.</p>{% endif %}
         <button type="button" class="btn small" id="logout-btn" style="justify-content:flex-start;">{% if me.demo %}Выйти из демо{% else %}Выйти{% endif %}</button>
       </div>
     </div>
   </div>
 </header>
+<nav class="tabbar" aria-label="Разделы">
+  {% for item in nav %}
+  <a href="{{ item.url }}" {% if item.key == active %}aria-current="page"{% endif %}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ item.icon|safe }}</svg><span>{{ item.short or item.label }}</span></a>
+  {% endfor %}
+</nav>
 <main class="main" id="main" data-role="{{ me.role }}" data-program="{{ me.program_id }}">
 {% block content %}{% endblock %}
 </main>

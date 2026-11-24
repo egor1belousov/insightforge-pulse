@@ -74,7 +74,7 @@
   function render() {
     const L = S.llm;
     let h = '<section class="hero"><div class="sphere orb" data-orb="mesh" data-size="560" aria-hidden="true"></div><p class="tagline">Настройки</p><h1>Интеграции, оповещения, доступ</h1><p class="sub">Пороги и веса — стартовые: согласуем с HR и калибруем на исторических данных. Любое изменение сразу пересчитывает сигналы.</p></section>';
-    h += '<div class="widgets"><section class="card col" style="flex:1 1 360px">' + intCard() + "</section>";
+    h += '<div class="widgets"><section class="card col int-card" style="flex:1 1 360px">' + intCard() + "</section>";
     h += '<section class="card col" style="flex:1 1 360px" id="llm-card">' + llmCard(L) + "</section></div>";
     h += '<section class="card col"><p class="eyebrow">Правила оповещений · превью «сработало бы сейчас»</p>';
     RULES.forEach(([k, n, step, ch]) => {

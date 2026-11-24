@@ -76,7 +76,7 @@
     const X = (i) => 40 + i * 98, Y = (v) => 14 + (1 - Math.min(Math.max(0, v) / 0.6, 1)) * 216;
     const ms = D.months, idx = ms.findIndex((x) => x.p === D.period);
     let h = head("trend", "Динамика расхождения и прогноз");
-    h += '<svg viewBox="0 0 640 252" role="img" aria-label="Линии расхождения по парам по месяцам и прогноз" style="width:100%;height:auto;display:block;margin-top:4px">';
+    h += '<div class="chart-wrap"><svg viewBox="0 0 640 252" role="img" aria-label="Линии расхождения по парам по месяцам и прогноз" style="width:100%;height:auto;display:block;margin-top:4px">';
     const fx = Math.min(X(ms.length), 628);
     if (D.period === D.last) h += '<rect x="' + X(ms.length - 1) + '" y="14" width="' + (fx - X(ms.length - 1)) + '" height="216" fill="#F3F5F9" rx="6"></rect>';
     [1, 0.75, 0.5, 0.25, 0].forEach((v) => { const y = 14 + (1 - v) * 216; h += '<line x1="40" x2="628" y1="' + y + '" y2="' + y + '" stroke="#E6E9EF"></line><text x="32" y="' + (y + 3) + '" font-size="10" fill="#5B6478" text-anchor="end">' + (v * 0.6).toFixed(2) + "</text>"; });
@@ -89,7 +89,7 @@
     });
     ms.forEach((m, i) => { h += '<text x="' + X(i) + '" y="246" font-size="11" fill="' + (i <= idx ? "#5B6478" : "#B0B7C6") + '" text-anchor="middle">' + esc(m.short) + "</text>"; });
     if (D.period === D.last) h += '<text x="' + fx + '" y="246" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(D.next_short) + " · прогноз</text>";
-    h += "</svg>";
+    h += "</svg></div>";
     if (idx === 0) h += '<p class="small" style="background:var(--bg);border-radius:12px;padding:12px;margin-top:8px">Пока только одна анкета — тренд появится после второй.</p>';
     h += '<div class="row" style="gap:14px;margin-top:8px">' + D.pairs.map((p) => '<span class="row nowrap xs" style="gap:6px;color:var(--muted-2)"><span style="width:14px;height:3px;border-radius:2px;background:' + p.st.dot + '"></span>' + esc(p.code + " · " + p.st.label) + "</span>").join("") + "</div>";
     return card("trend", h);
