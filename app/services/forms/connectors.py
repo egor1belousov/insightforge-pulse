@@ -258,6 +258,10 @@ def fetch_google_sheet(cfg: dict) -> tuple[list[str], list[list[str]]]:
     return rows[0], [x for x in rows[1:] if any(c.strip() for c in x)]
 
 
+# служебные столбцы таблицы ответов: время отправки
+SERVICE_COL_RE = re.compile(r"^(отметка времени|timestamp|время отправки|дата)$", re.I)
+
+
 def fetch_google_rows(cfg: dict) -> list[tuple[str, dict]]:
     """Строки таблицы → (ключ, {вопрос: ответ}); ключ — время ответа и содержимое строки."""
     import hashlib
@@ -266,7 +270,9 @@ def fetch_google_rows(cfg: dict) -> list[tuple[str, dict]]:
     out = []
     for row in rows:
         fields = {
-            h.strip(): (row[i].strip() if i < len(row) else "") for i, h in enumerate(heads) if h.strip()
+            h.strip(): (row[i].strip() if i < len(row) else "")
+            for i, h in enumerate(heads)
+            if h.strip() and not SERVICE_COL_RE.match(h.strip())
         }
         key = hashlib.sha1("\u241f".join(row).encode()).hexdigest()[:20]
         out.append((key, fields))
