@@ -226,3 +226,18 @@ def test_mail_answers_reach_participant(demo, monkeypatch) -> None:  # noqa: F81
             .count()
             == 1
         )
+
+
+def test_mail_with_question_descriptions_and_footer() -> None:
+    from app.services.forms.connectors import parse_mail_body
+
+    body = (
+        "Пульс: ответ\nВаш ID: С-104\nНасколько понятны задачи, которые вы получаете?:\n"
+        '"Где 1 - совсем непонятны, а 10  - все задачи понятны.": 9\n'
+        "Комментарий: что получается и что мешает?:\nНет ответа\n"
+        "Это письмо содержит ответы на опрос, созданный пользователем Yandex Forms."
+    )
+    f = parse_mail_body(body)
+    assert f["Насколько понятны задачи, которые вы получаете?"] == "9"
+    assert f["Комментарий: что получается и что мешает?"] == ""
+    assert not any("Где 1" in k for k in f)
