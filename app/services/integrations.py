@@ -42,6 +42,24 @@ KINDS: dict[str, dict] = {
             ),
         ],
     },
+    "yandex_mail": {
+        "title": "Яндекс Форма — письмом",
+        "desc": "Для личной формы: форма присылает ответ на почту, Пульс забирает его по IMAP",
+        "fields": [
+            (
+                "email",
+                "Почта для ответов",
+                False,
+                "Ящик на Яндексе, куда форма отправляет письма, например mgts-pulse@yandex.ru",
+            ),
+            (
+                "password",
+                "Пароль приложения",
+                True,
+                "Яндекс ID → Безопасность → Пароли приложений → Почта (IMAP)",
+            ),
+        ],
+    },
     "google": {
         "title": "Google Forms",
         "desc": "Альтернатива Яндекс Формам: опрос ответов по API",
@@ -102,6 +120,7 @@ def _env(kind: str) -> dict:
             "password": s.smtp_password,
         },
         "telegram": {"token": ""},
+        "yandex_mail": {"email": "", "password": ""},
     }[kind]
 
 
@@ -255,6 +274,20 @@ def check(kind: str, cfg: dict) -> str:
                 raise CheckError("Форма с таким ID не найдена.")
             r.raise_for_status()
             return (r.json().get("info", {}).get("title") or cfg["form_id"])[:80]
+        if kind == "yandex_mail":
+            import imaplib
+
+            try:
+                m = imaplib.IMAP4_SSL("imap.yandex.ru", 993, timeout=10)
+                m.login(cfg["email"], cfg["password"])
+                m.select("INBOX", readonly=True)
+                m.logout()
+            except imaplib.IMAP4.error as e:
+                raise CheckError(
+                    "Почта не пустила: проверьте адрес и пароль приложения; в настройках почты должен быть "
+                    "включён доступ по IMAP с паролем приложения."
+                ) from e
+            return cfg["email"]
         if kind == "smtp":
             with _smtp(cfg) as srv:
                 srv.noop()
