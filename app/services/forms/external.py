@@ -1,5 +1,6 @@
 """Ответы из внешних форм (Яндекс Формы, Google Forms): сопоставление полей с вопросами анкеты."""
 
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from app.services.ingest.text import ID_RE, canon_id, question_code, similarity
 ID_WORDS = ("id", "код", "участник", "табельн", "ваш номер")
 COMMENT_WORDS = ("коммент", "что мешает", "что получается", "пожелан", "своими словами")
 MATCH_MIN = 0.6
+DATE_RE = re.compile(r"^\d{1,4}[./-]\d{1,2}[./-]\d{1,4}([ T]\d{1,2}:\d{2}(:\d{2})?)?$")
 
 
 def find_participant(db: Session, program: Program, fields: dict[str, Any]) -> Participant | None:
@@ -51,7 +53,7 @@ def map_fields(
     unknown: list[str] = []
     for label, value in fields.items():
         v = "" if value is None else str(value).strip()
-        if not v or ID_RE.match(v) or "@" in v:
+        if not v or ID_RE.match(v) or "@" in v or DATE_RE.match(v):
             continue
         code = question_code(label)
         q = next((x for x in scale_qs if code and x.order + 1 == int(code[1:])), None)

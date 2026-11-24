@@ -357,6 +357,7 @@ def test_google_sheet_rows_reach_participant(demo, monkeypatch) -> None:  # noqa
         part = db.query(Participant).filter(Participant.external_id == "С-104").one()
         r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "google").one()
         assert any(a.text == "Мало времени на вопросы" for a in r.answers)
+        assert not any("2026" in (a.value_raw or "") + (a.text or "") for a in r.answers)
 
 
 def test_google_closed_sheet_explained(monkeypatch) -> None:
