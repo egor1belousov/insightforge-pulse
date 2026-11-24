@@ -314,3 +314,68 @@ def test_mail_channel_hidden_from_ui(demo) -> None:  # noqa: F811
     hr = login("hr@pulse.demo")
     assert "yandex_mail" not in hr.get("/api/integrations").json()
     assert hr.post("/api/integrations/yandex_mail", json={}, headers=csrf_headers(hr)).status_code == 404
+
+
+def test_google_sheet_links() -> None:
+    from app.services.forms.connectors import sheet_csv_url
+
+    sid = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd"
+    assert (
+        sheet_csv_url(f"https://docs.google.com/spreadsheets/d/{sid}/edit?usp=sharing")
+        == f"https://docs.google.com/spreadsheets/d/{sid}/export?format=csv"
+    )
+    assert (
+        sheet_csv_url(f"https://docs.google.com/spreadsheets/d/{sid}/edit#gid=123")
+        == f"https://docs.google.com/spreadsheets/d/{sid}/export?format=csv&gid=123"
+    )
+    assert (
+        sheet_csv_url(f"https://docs.google.com/spreadsheets/d/e/2PACX-{sid}/pubhtml")
+        == f"https://docs.google.com/spreadsheets/d/e/2PACX-{sid}/pub?output=csv"
+    )
+    assert sheet_csv_url("https://forms.gle/abc") is None
+
+
+def test_google_sheet_rows_reach_participant(demo, monkeypatch) -> None:  # noqa: F811
+    from app.services.forms import connectors
+
+    qs = [
+        "Насколько понятны задачи, которые вы получаете?",
+        "Можете ли вы выполнять задачи без помощи наставника?",
+        "Хватает ли вам времени и внимания наставника?",
+        "Комфортен ли для вас объём задач?",
+        "Получаете ли вы обратную связь по своей работе?",
+        "Насколько вам понятны ваши перспективы после стажировки?",
+    ]
+    heads = ["Отметка времени", "Ваш ID", *qs, "Комментарий: что получается и что мешает?"]
+    rows = [["24.11.2026 21:00:00", "С-104", "6", "6", "5", "4", "7", "5", "Мало времени на вопросы"]]
+    monkeypatch.setattr(connectors, "fetch_google_sheet", lambda cfg: (heads, rows))
+    with SessionLocal() as db:
+        prog = db.query(Program).first()
+        cfg = {"sheet_url": "https://docs.google.com/spreadsheets/d/x/edit", "connected": True}
+        assert connectors.poll(db, prog.id, "google", cfg) == 1
+        assert connectors.poll(db, prog.id, "google", cfg) == 0
+        part = db.query(Participant).filter(Participant.external_id == "С-104").one()
+        r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "google").one()
+        assert any(a.text == "Мало времени на вопросы" for a in r.answers)
+
+
+def test_google_closed_sheet_explained(monkeypatch) -> None:
+    import httpx
+
+    from app.services.forms import connectors
+
+    class R:
+        status_code, headers, content = (
+            200,
+            {"content-type": "text/html; charset=utf-8"},
+            b"<html>login</html>",
+        )
+
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: R())
+    try:
+        connectors.fetch_google_sheet(
+            {"sheet_url": "https://docs.google.com/spreadsheets/d/1AbCdEfGhIjKlMnOpQrStUvWx/edit"}
+        )
+        raise AssertionError("должна быть ошибка")
+    except integrations.CheckError as e:
+        assert "читатель" in str(e)

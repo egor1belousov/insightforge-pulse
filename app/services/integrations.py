@@ -5,7 +5,6 @@
 Секреты наружу не отдаются: в интерфейсе видны только последние символы.
 """
 
-import json
 import re
 import secrets
 import smtplib
@@ -63,15 +62,14 @@ KINDS: dict[str, dict] = {
     },
     "google": {
         "title": "Google Forms",
-        "desc": "Альтернатива Яндекс Формам: опрос ответов по API",
+        "desc": "Ответы из таблицы формы: Пульс забирает её каждые 15 секунд",
         "fields": [
             (
-                "credentials",
-                "OAuth-доступ (JSON)",
-                True,
-                "client_id, client_secret, refresh_token из Google Cloud",
+                "sheet_url",
+                "Ссылка на таблицу ответов",
+                False,
+                "Форма → Ответы → «Связать с Таблицами»; в таблице «Настройки доступа» → «Все, у кого есть ссылка: читатель». Вставьте ссылку на таблицу",
             ),
-            ("form_id", "ID формы", False, "Из адреса формы: docs.google.com/forms/d/<ID>/edit"),
         ],
     },
     "smtp": {
@@ -113,7 +111,7 @@ def _env(kind: str) -> dict:
             "form_id": s.yandex_form_id,
             "secret": s.yandex_webhook_secret,
         },
-        "google": {"credentials": s.google_forms_credentials, "form_id": s.google_form_id},
+        "google": {"sheet_url": ""},
         "smtp": {
             "host": s.smtp_host,
             "port": str(s.smtp_port),
@@ -259,24 +257,12 @@ def check(kind: str, cfg: dict) -> str:
             cols = r.json().get("columns") or []
             return f"форма …{cfg['form_id'][-6:]}, вопросов: {len(cols)}"
         if kind == "google":
-            from app.services.forms.connectors import _google_token
+            from app.services.forms.connectors import fetch_google_sheet, sheet_csv_url
 
-            try:
-                creds = json.loads(cfg["credentials"])
-            except json.JSONDecodeError as e:
-                raise CheckError(
-                    "Доступ Google должен быть JSON с client_id, client_secret, refresh_token."
-                ) from e
-            token = _google_token(creds)
-            r = httpx.get(
-                f"https://forms.googleapis.com/v1/forms/{cfg['form_id']}",
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=10,
-            )
-            if r.status_code == 404:
-                raise CheckError("Форма с таким ID не найдена.")
-            r.raise_for_status()
-            return (r.json().get("info", {}).get("title") or cfg["form_id"])[:80]
+            if not sheet_csv_url(cfg["sheet_url"]):
+                raise CheckError("Нужна ссылка на Google Таблицу: docs.google.com/spreadsheets/…")
+            heads, rows = fetch_google_sheet(cfg)
+            return f"таблица: вопросов {max(0, len(heads) - 1)}, ответов {len(rows)}"
         if kind == "yandex_mail":
             import imaplib
 

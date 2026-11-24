@@ -213,6 +213,66 @@ def fetch_mail(cfg: dict, limit: int = 50) -> list[tuple[str, dict]]:
     return out
 
 
+SHEET_ID_RE = re.compile(r"/spreadsheets/d/(e/)?([A-Za-z0-9_-]{20,})")
+
+
+def sheet_csv_url(url: str) -> str | None:
+    """Ссылка на Google Таблицу → адрес выгрузки CSV (обычная ссылка или «опубликовать в интернете»)."""
+    m = SHEET_ID_RE.search(url or "")
+    if not m:
+        return None
+    gid = re.search(r"[#&?]gid=(\d+)", url)
+    if m.group(1):  # опубликованная: /d/e/<id>/pub
+        return f"https://docs.google.com/spreadsheets/d/e/{m.group(2)}/pub?output=csv" + (
+            f"&gid={gid.group(1)}" if gid else ""
+        )
+    return f"https://docs.google.com/spreadsheets/d/{m.group(2)}/export?format=csv" + (
+        f"&gid={gid.group(1)}" if gid else ""
+    )
+
+
+def fetch_google_sheet(cfg: dict) -> tuple[list[str], list[list[str]]]:
+    """Таблица ответов формы как CSV: заголовки и строки.
+
+    Raises:
+        integrations.CheckError: если таблица закрыта или это не таблица.
+    """
+    import csv
+    import io
+
+    url = sheet_csv_url(cfg.get("sheet_url", ""))
+    if not url:
+        raise integrations.CheckError("Нужна ссылка на Google Таблицу.")
+    r = httpx.get(url, timeout=15, follow_redirects=True)
+    ctype = r.headers.get("content-type", "")
+    if r.status_code in (401, 403) or "text/html" in ctype:
+        raise integrations.CheckError(
+            "Таблица закрыта: в Google Таблице откройте «Настройки доступа» → «Все, у кого есть ссылка: читатель»."
+        )
+    if r.status_code == 404:
+        raise integrations.CheckError("Таблица не найдена — проверьте ссылку.")
+    r.raise_for_status()
+    rows = list(csv.reader(io.StringIO(r.content.decode("utf-8-sig", errors="ignore"))))
+    if not rows:
+        return [], []
+    return rows[0], [x for x in rows[1:] if any(c.strip() for c in x)]
+
+
+def fetch_google_rows(cfg: dict) -> list[tuple[str, dict]]:
+    """Строки таблицы → (ключ, {вопрос: ответ}); ключ — время ответа и содержимое строки."""
+    import hashlib
+
+    heads, rows = fetch_google_sheet(cfg)
+    out = []
+    for row in rows:
+        fields = {
+            h.strip(): (row[i].strip() if i < len(row) else "") for i, h in enumerate(heads) if h.strip()
+        }
+        key = hashlib.sha1("\u241f".join(row).encode()).hexdigest()[:20]
+        out.append((key, fields))
+    return out
+
+
 def _google_token(creds: dict) -> str:
     r = httpx.post(
         "https://oauth2.googleapis.com/token",
@@ -304,7 +364,9 @@ def poll(db, program_id: int | None, kind: str, cfg: dict, org: int | None = Non
     org = org or (program.organization_id if program else None)
     if kind == "yandex" and not cfg.get("token"):
         return 0  # режим «только вебхук»
-    items = {"yandex": fetch_yandex, "google": fetch_google, "yandex_mail": fetch_mail}[kind](cfg)
+    fetchers = {"yandex": fetch_yandex, "yandex_mail": fetch_mail}
+    fetchers["google"] = fetch_google if cfg.get("credentials") else fetch_google_rows
+    items = fetchers[kind](cfg)
     key = f"seen_{kind}"
     seen = _seen(db, program, key)
     done = 0
