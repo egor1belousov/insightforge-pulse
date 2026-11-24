@@ -33,6 +33,16 @@ make tunnel-install EDGE=IP                           # туннель как с
 - Если ноутбук выключен или туннель оборван, на домене видна страница «Демо-стенд сейчас выключен» вместо ошибки.
 - Состояние туннеля: `make tunnel-status`. Остановить приложение: `make laptop-down`.
 - Перед показом: `make demo` — свежие демо-данные.
+- Если Let's Encrypt не может достучаться до сервера (часть зарубежных подключений к российским IP отбрасывается по дороге, в журнале Caddy `Timeout during connect`), сертификат выпускают проверкой через DNS на ноутбуке и ставят на сервер:
+  ```bash
+  git clone --depth 1 https://github.com/acmesh-official/acme.sh.git /tmp/acme
+  /tmp/acme/acme.sh --home ~/.acme-pulse --server letsencrypt --issue --dns -d pulse.example.ru -d www.pulse.example.ru \
+    --yes-I-know-dns-manual-mode-enough-go-ahead-please   # выдаст две TXT-записи — добавить у регистратора
+  /tmp/acme/acme.sh --home ~/.acme-pulse --server letsencrypt --renew -d pulse.example.ru -d www.pulse.example.ru \
+    --yes-I-know-dns-manual-mode-enough-go-ahead-please   # когда записи видны: dig TXT _acme-challenge.pulse.example.ru
+  make edge-cert EDGE=IP CERT=~/.acme-pulse/pulse.example.ru_ecc/fullchain.cer KEY=~/.acme-pulse/pulse.example.ru_ecc/pulse.example.ru.key
+  ```
+  Сертификат действует 90 дней, продление — те же две команды с новыми TXT-записями. Купленный у регистратора сертификат ставится той же `make edge-cert`.
 
 ## Сервер с GPU
 

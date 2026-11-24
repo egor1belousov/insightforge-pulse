@@ -1,6 +1,6 @@
 .PHONY: up up-gpu down logs model seed demo demo-fast test lint fixtures template validate dev admin \
 	prod-up prod-down prod-logs prod-warm prod-demo deploy \
-	laptop-up laptop-down edge-setup tunnel-install tunnel-status tunnel-stop
+	laptop-up laptop-down edge-setup edge-cert tunnel-install tunnel-status tunnel-stop
 
 up:
 	docker compose up -d --build
@@ -97,6 +97,18 @@ edge-setup:
 	@test -n "$(EDGE)" -a -n "$(DOMAIN)" || (echo "Укажите: make edge-setup EDGE=1.2.3.4 DOMAIN=pulse.example.ru [EDGE_USER=pulse]" && exit 1)
 	scp -i ~/.ssh/pulse_admin -o StrictHostKeyChecking=accept-new -r deploy/edge $(EDGE_USER)@$(EDGE):pulse-edge
 	ssh -i ~/.ssh/pulse_admin $(EDGE_USER)@$(EDGE) "sudo bash pulse-edge/edge-setup.sh $(DOMAIN) '$$(cat ~/.ssh/pulse_tunnel.pub)'"
+
+# Готовый сертификат на сервер-посредник, если Let's Encrypt не может достучаться до сервера по HTTP
+edge-cert:
+	@test -n "$(EDGE)" -a -n "$(CERT)" -a -n "$(KEY)" || (echo "Укажите: make edge-cert EDGE=1.2.3.4 CERT=fullchain.pem KEY=privkey.pem [EDGE_USER=pulse]" && exit 1)
+	scp -i ~/.ssh/pulse_admin $(CERT) $(EDGE_USER)@$(EDGE):pulse-cert.pem
+	scp -i ~/.ssh/pulse_admin $(KEY) $(EDGE_USER)@$(EDGE):pulse-key.pem
+	ssh -i ~/.ssh/pulse_admin $(EDGE_USER)@$(EDGE) "sudo install -d -m 750 -g caddy /etc/caddy/certs /etc/caddy/tls.d \
+		&& sudo install -m 644 pulse-cert.pem /etc/caddy/certs/domain.crt \
+		&& sudo install -m 640 -g caddy pulse-key.pem /etc/caddy/certs/domain.key \
+		&& rm pulse-cert.pem pulse-key.pem \
+		&& echo 'tls /etc/caddy/certs/domain.crt /etc/caddy/certs/domain.key' | sudo tee /etc/caddy/tls.d/manual >/dev/null \
+		&& sudo systemctl reload caddy"
 
 tunnel-install:
 	@test -n "$(EDGE)" || (echo "Укажите сервер: make tunnel-install EDGE=1.2.3.4" && exit 1)
