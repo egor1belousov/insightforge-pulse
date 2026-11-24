@@ -19,7 +19,7 @@ from app.services import integrations
 log = logging.getLogger("pulse.telegram")
 API = "https://api.telegram.org/bot{token}/{method}"
 
-_threads: dict[int, tuple[str, threading.Event]] = {}
+_threads: dict[str, threading.Event] = {}
 _state: dict[tuple[int, int], dict] = {}  # (org, chat) → шаг анкеты в чате
 
 
@@ -155,6 +155,37 @@ def _finish(token: str, chat: int, st: dict, db: Session, part: Participant) -> 
     call(token, "sendMessage", chat_id=chat, text="Спасибо! Ответы сохранены. Их видит только HR.")
 
 
+def orgs_for(db: Session, token: str) -> list[int]:
+    """Организации, которые используют этот бот (у демо — основная и все песочницы)."""
+    return [
+        o.id
+        for o in db.query(Organization.id)
+        if integrations.config(db, o.id, "telegram").get("token") == token
+    ]
+
+
+def route(db: Session, token: str, upd: dict) -> int | None:
+    """Организация для обновления: по коду из /start или по привязанному чату."""
+    msg, cb = upd.get("message"), upd.get("callback_query")
+    chat = (msg or (cb or {}).get("message") or {}).get("chat", {}).get("id")
+    orgs = orgs_for(db, token)
+    text = (msg or {}).get("text") or ""
+    if text.startswith("/start"):
+        code = (text.split(maxsplit=1) + [""])[1].strip()
+        for o in orgs:
+            if code and code in _get(db, o, "tg_codes"):
+                for other in orgs:  # чат привязан только к одной организации
+                    if other != o:
+                        ch = _get(db, other, "tg_chats")
+                        if chat in ch.values():
+                            _set(db, other, "tg_chats", {p: c for p, c in ch.items() if c != chat})
+                return o
+    for o in orgs:
+        if chat in _get(db, o, "tg_chats").values():
+            return o
+    return orgs[0] if orgs else None
+
+
 def handle(db: Session, org: int, token: str, upd: dict) -> None:
     """Одно обновление от Telegram."""
     msg, cb = upd.get("message"), upd.get("callback_query")
@@ -233,7 +264,7 @@ def handle(db: Session, org: int, token: str, upd: dict) -> None:
         )
 
 
-def _poll(org: int, token: str, stop: threading.Event) -> None:
+def _poll(token: str, stop: threading.Event) -> None:
     offset = 0
     while not stop.is_set():
         try:
@@ -251,34 +282,33 @@ def _poll(org: int, token: str, stop: threading.Event) -> None:
             offset = u["update_id"] + 1
             try:
                 with SessionLocal() as db:
-                    handle(db, org, token, u)
+                    org = route(db, token, u)
+                    if org is not None:
+                        handle(db, org, token, u)
             except Exception:  # noqa: BLE001 — одно сообщение не должно ронять бота
                 log.exception("Telegram: ошибка обработки")
 
 
 def supervise(stop: threading.Event) -> None:
-    """Запускает и останавливает потоки ботов по мере подключения в настройках."""
+    """Один поток на каждый подключённый бот; останавливает отключённые."""
     while not stop.is_set():
         try:
             with SessionLocal() as db:
-                want = {}
-                for org in db.query(Organization.id):
-                    cfg = integrations.config(db, org.id, "telegram")
-                    if cfg:
-                        want[org.id] = cfg["token"]
-            for org, (tok, ev) in list(_threads.items()):
-                if want.get(org) != tok:
+                want = {
+                    integrations.own(db, o.id, "telegram").get("token") for o in db.query(Organization.id)
+                } - {None, ""}
+            for tok, ev in list(_threads.items()):
+                if tok not in want:
                     ev.set()
-                    _threads.pop(org)
-            for org, tok in want.items():
-                if org not in _threads and tok not in {t for t, _ in _threads.values()}:
-                    ev = threading.Event()
-                    threading.Thread(target=_poll, args=(org, tok, ev), daemon=True, name=f"tg-{org}").start()
-                    _threads[org] = (tok, ev)
+                    _threads.pop(tok)
+            for tok in want - set(_threads):
+                ev = threading.Event()
+                threading.Thread(target=_poll, args=(tok, ev), daemon=True, name="tg-bot").start()
+                _threads[tok] = ev
         except Exception:  # noqa: BLE001
             log.exception("Telegram: ошибка супервизора")
         stop.wait(20)
-    for _, ev in _threads.values():
+    for ev in _threads.values():
         ev.set()
 
 

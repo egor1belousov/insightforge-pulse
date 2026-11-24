@@ -102,3 +102,38 @@ def test_telegram_links_and_survey_in_chat(demo, monkeypatch) -> None:  # noqa: 
         assert "Спасибо" in sent[-1]["text"]
         r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "telegram").one()
         assert any(a.text for a in r.answers)
+
+
+def test_sandboxes_share_demo_bot_and_route_by_link(demo, monkeypatch) -> None:  # noqa: F811
+    from app.services import sandbox
+
+    monkeypatch.setattr(telegram, "call", lambda token, method, **p: {"message_id": 1})
+    with SessionLocal() as db:
+        tmpl = integrations.demo_template(db)
+        integrations._put(
+            db, tmpl, "int_telegram", {"connected": True, "token": "T", "info": "@pulse_bot", "secret": "s"}
+        )
+        a, b = sandbox.build(db, use_llm=False), sandbox.build(db, use_llm=False)
+        assert integrations.config(db, a.id, "telegram")["source"] == "demo"
+        assert set(telegram.orgs_for(db, "T")) >= {tmpl, a.id, b.id}
+        pa = (
+            db.query(Participant)
+            .join(Program)
+            .filter(Program.organization_id == a.id, Participant.external_id == "С-104")
+            .one()
+        )
+        pb = (
+            db.query(Participant)
+            .join(Program)
+            .filter(Program.organization_id == b.id, Participant.external_id == "С-104")
+            .one()
+        )
+        la, lb = telegram.link_for(db, pa), telegram.link_for(db, pb)
+        for link, org, part in ((la, a.id, pa), (lb, b.id, pb)):
+            upd = {"message": {"chat": {"id": 5}, "text": "/start " + link.split("=")[1]}}
+            assert telegram.route(db, "T", upd) == org
+            telegram.handle(db, org, "T", upd)
+            assert telegram.chat_of(db, org, part.id) == 5
+        # чат перепривязан ко второй песочнице, из первой убран
+        assert telegram.chat_of(db, a.id, pa.id) is None
+        assert telegram.route(db, "T", {"message": {"chat": {"id": 5}, "text": "привет"}}) == b.id
