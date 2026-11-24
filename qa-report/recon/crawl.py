@@ -35,7 +35,7 @@ def main() -> None:
             errors = []
             pg.on(
                 "console",
-                lambda m: (
+                lambda m, errors=errors: (
                     errors.append(f"{m.type}: {m.text}"[:200]) if m.type in ("error", "warning") else None
                 ),
             )
