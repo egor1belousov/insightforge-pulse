@@ -147,10 +147,10 @@ def ingest_any(db, org: int, fields: dict, source: str) -> dict:
     raise last or SubmitError("В организации нет потоков.")
 
 
-def poll(db, program_id: int | None, kind: str, cfg: dict) -> int:
+def poll(db, program_id: int | None, kind: str, cfg: dict, org: int | None = None) -> int:
     """Забирает новые ответы формы организации. Возвращает число принятых."""
     program = db.get(Program, program_id) if program_id else None
-    org = program.organization_id if program else None
+    org = org or (program.organization_id if program else None)
     items = fetch_yandex(cfg) if kind == "yandex" else fetch_google(cfg)
     key = f"seen_{kind}"
     seen = _seen(db, program, key)
@@ -159,7 +159,7 @@ def poll(db, program_id: int | None, kind: str, cfg: dict) -> int:
         if aid in seen:
             continue
         try:
-            ingest_any(db, org, fields, kind)
+            ingest_any(db, integrations.active_demo_org(db, org) if org else org, fields, kind)
             done += 1
         except SubmitError as e:
             log.warning("%s: ответ %s не принят: %s", kind, aid, e)
@@ -178,7 +178,10 @@ async def poller() -> None:
                     db.query(Program).filter(Program.organization_id == org.id).order_by(Program.id).first()
                 )
                 for kind in ("yandex", "google"):
-                    cfg = integrations.config(db, org.id, kind)
+                    # песочницы демо берут форму основной организации — опрашиваем её один раз
+                    cfg = integrations.own(db, org.id, kind) or (
+                        {} if org.sandbox_token else integrations.config(db, org.id, kind)
+                    )
                     if cfg and prog:
                         jobs.append((prog.id, kind, cfg))
         for pid, kind, cfg in jobs:

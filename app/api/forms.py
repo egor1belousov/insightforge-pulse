@@ -159,6 +159,7 @@ async def yandex_webhook(request: Request, token: str = "", db: Session = Depend
     except json.JSONDecodeError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ожидается JSON.") from e
     _, fields = connectors.parse_yandex_answer(body if isinstance(body, dict) else {"data": body})
+    org = integrations.active_demo_org(db, org)
     try:
         ev = connectors.ingest_any(db, org, fields, "yandex")
     except SubmitError as e:

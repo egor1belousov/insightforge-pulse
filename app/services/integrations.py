@@ -95,11 +95,43 @@ def _env(kind: str) -> dict:
     }[kind]
 
 
-def config(db: Session, org: int, kind: str) -> dict:
-    """Рабочая конфигурация интеграции: из настроек организации или из .env."""
+def demo_template(db: Session) -> int | None:
+    """Основная демо-организация (не песочница) — от неё песочницы берут интеграции."""
+    from app.db.models import Organization, User
+
+    row = (
+        db.query(User.organization_id)
+        .join(Organization, Organization.id == User.organization_id)
+        .filter(User.email == "hr@pulse.demo", Organization.sandbox_token.is_(None))
+        .first()
+    )
+    return row[0] if row else None
+
+
+def is_sandbox(db: Session, org: int) -> bool:
+    from app.db.models import Organization
+
+    o = db.get(Organization, org)
+    return bool(o and o.sandbox_token)
+
+
+def own(db: Session, org: int, kind: str) -> dict:
+    """Интеграция, подключённая именно в этой организации."""
     row = _row(db, org, f"int_{kind}")
-    if row and row.value and row.value.get("connected"):
-        return row.value
+    return row.value if row and row.value and row.value.get("connected") else {}
+
+
+def config(db: Session, org: int, kind: str) -> dict:
+    """Рабочая конфигурация: своя, у песочницы демо — от основной демо-организации, иначе из .env."""
+    cfg = own(db, org, kind)
+    if cfg:
+        return cfg
+    if is_sandbox(db, org):
+        tmpl = demo_template(db)
+        if tmpl and tmpl != org:
+            shared = own(db, tmpl, kind)
+            if shared:
+                return shared | {"source": "demo"}
     env = _env(kind)
     required = [f for f, _, _, _ in KINDS[kind]["fields"] if f != "port"]
     if all(env.get(f) for f in required):
@@ -279,6 +311,27 @@ def send_email(db: Session, org: int, to: str | None, title: str, text: str, lin
         return "ошибка почтового сервера"
     log(db, org, "smtp", f"Письмо {to}: {title}")
     return "отправлено"
+
+
+def active_demo_org(db: Session, org: int) -> int:
+    """Куда класть ответ внешней формы основной демо-организации: в песочницу, где сейчас идёт показ."""
+    from datetime import datetime, timedelta
+
+    from app.db.models import Organization
+
+    if org != demo_template(db):
+        return org
+    recent = (
+        db.query(Organization)
+        .filter(
+            Organization.sandbox_claimed_at.is_not(None),
+            Organization.sandbox_seen_at
+            >= datetime.utcnow() - timedelta(hours=get_settings().demo_sandbox_hours),
+        )
+        .order_by(Organization.sandbox_seen_at.desc())
+        .first()
+    )
+    return recent.id if recent else org
 
 
 def org_by_secret(db: Session, kind: str, secret: str) -> int | None:
