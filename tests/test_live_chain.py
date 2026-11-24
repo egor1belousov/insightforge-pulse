@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.settings import get_settings
-from app.db.models import Participant, Question, Questionnaire
+from app.db.models import Participant, Question, Questionnaire, Response
 from app.db.session import SessionLocal
 from app.main import app
 from app.seed import seed_accounts, seed_demo_data
@@ -109,6 +109,11 @@ def test_demo_button_and_yandex_webhook(demo, monkeypatch) -> None:
     anon = TestClient(app)
     assert anon.post("/api/forms/yandex/webhook?token=bad", json=fields).status_code == 403
     r = anon.post("/api/forms/yandex/webhook?token=s3cret", json=fields)
-    assert r.status_code == 200, r.text
-    assert r.json()["pair"] == "П-03"
+    assert r.status_code == 200 and r.json()["ok"], r.text
+    with SessionLocal() as db:  # доставка прошла в фоне после ответа
+        part = db.query(Participant).filter(Participant.external_id == "С-103").one()
+        assert (
+            db.query(Response).filter(Response.participant_id == part.id, Response.source == "yandex").count()
+            == 1
+        )
     get_settings.cache_clear()

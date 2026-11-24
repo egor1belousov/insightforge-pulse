@@ -15,8 +15,9 @@ from app.core.settings import get_settings
 from app.db.models import AppSetting, Organization, Program
 from app.db.session import SessionLocal
 from app.services import integrations
-from app.services.forms.external import ingest_external
+from app.services.forms.external import ID_WORDS, ingest_external
 from app.services.forms.submit import SubmitError
+from app.services.ingest.text import ID_RE
 
 log = logging.getLogger("pulse.connectors")
 
@@ -265,6 +266,15 @@ def ingest_any(db, org: int, fields: dict, source: str) -> dict:
         except SubmitError as e:
             last = e
     raise last or SubmitError("В организации нет потоков.")
+
+
+def find_id(fields: dict) -> str | None:
+    """Есть ли в ответе ID участника или почта — быстрая проверка до доставки."""
+    for label, value in fields.items():
+        v = str(value or "").strip()
+        if "@" in v or (ID_RE.match(v) and (any(w in label.lower() for w in ID_WORDS) or len(v) <= 8)):
+            return v
+    return None
 
 
 def deliver(db, org: int, fields: dict, source: str) -> dict:

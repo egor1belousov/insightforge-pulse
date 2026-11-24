@@ -298,5 +298,13 @@ def test_yandex_webhook_only_mode(demo) -> None:  # noqa: F811
         content=body.encode(),
         headers={"content-type": "text/plain"},
     )
-    assert resp.status_code == 400 and "Ответьте на все вопросы" in resp.json()["detail"]
+    assert resp.status_code == 200 and resp.json()["ok"]  # доставка — в фоне
+    log = hr.get("/api/integrations").json()["yandex"]["log"]
+    assert any("Ответьте на все вопросы" in e["text"] for e in log)
+    no_id = hr.post(
+        f"/api/forms/yandex/webhook?token={secret}",
+        content="Комфортно: 5".encode(),
+        headers={"content-type": "text/plain"},
+    )
+    assert no_id.status_code == 400
     assert hr.post("/api/forms/yandex/webhook?token=wrong", json={}).status_code == 403
