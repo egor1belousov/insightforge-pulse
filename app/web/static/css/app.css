@@ -581,9 +581,8 @@ img, video, canvas, svg { max-width: 100%; }
   .tabs, .seg { scrollbar-width: none; }
   .tabs.overflow, .seg.overflow { -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
   .tabs::-webkit-scrollbar, .seg::-webkit-scrollbar { display: none; }
-  /* графики: не сжимаем подписи, а даём пролистать */
-  .chart-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; -webkit-overflow-scrolling: touch; }
-  .chart-wrap > svg { min-width: 560px; }
+  /* графики на телефоне рисуются своей сеткой под ширину экрана (dashboard.js, pairs.js) */
+  .chart-legend { gap: 6px 12px !important; }
   /* шапки разделов компактнее */
   .hero h1 { font-size: clamp(24px, 7vw, 30px); }
   .main { gap: 14px; }
@@ -638,3 +637,5 @@ img, video, canvas, svg { max-width: 100%; }
 .signal-btn .grow, .list-row .grow { overflow-wrap: anywhere; }
 .row.nowrap > .grow { overflow-wrap: anywhere; }
 @media (max-width: 360px) { #f-month + .row span { font-size: 12px; letter-spacing: -0.01em; } #f-month + .row { gap: 2px; } }
+/* список пар закреплён сбоку только там, где колонки стоят рядом */
+@media (min-width: 1024px) { .pair-list { position: sticky; top: 80px; } }

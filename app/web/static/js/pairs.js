@@ -3,6 +3,8 @@
   "use strict";
   const { api, esc, toast } = window.Pulse;
   const params = new URLSearchParams(location.search);
+  const PHONE = window.matchMedia("(max-width: 767px)");
+  PHONE.addEventListener("change", () => { if (C) renderCard(); });
   let LIST = [], cur = Number(params.get("id")) || null, tab = params.get("tab") || "diag", topic = "all", scale = "raw", filter = "all", q = "", C = null;
   const listBox = document.getElementById("pair-list"), cardBox = document.getElementById("pair-card");
 
@@ -33,16 +35,19 @@
   }
 
   function chartSvg() {
-    const ch = C.chart, ms = C.months, X = (i) => 40 + i * 98, Y = (v) => 14 + (1 - v) * 180;
+    const ph = PHONE.matches, ch = C.chart, ms = C.months, n = ms.length;
+    // телефон: своя сетка под ширину экрана; компьютер — прежняя
+    const G = ph ? { w: 340, h: 236, l: 40, r: 330, t: 12, ph: 176, fs: 12, ms: 12, ticks: [1, 0.5, 0], dot: 5 } : { w: 640, h: 230, l: 40, r: 628, t: 14, ph: 180, fs: 10, ms: 11, ticks: [1, 0.75, 0.5, 0.25, 0], dot: 4.5 };
+    const step = ph ? (G.r - G.l) / Math.max(1, n) : 98, X = (i) => G.l + i * step, Y = (v) => G.t + (1 - v) * G.ph, base = G.t + G.ph;
     const ix = (p) => ms.findIndex((m) => m.p === p);
     const ip = ch.intern.map(([p, v]) => [X(ix(p)), Y(v)]), mp = ch.mentor.map(([p, v]) => [X(ix(p)), Y(v)]);
     const warm = (C.sig.delta || 0) >= 0, fill = warm ? "rgba(226,139,0,0.18)" : "rgba(47,111,219,0.16)", ffill = warm ? "rgba(226,139,0,0.09)" : "rgba(47,111,219,0.08)";
-    const fxp = Math.min(X(ms.length), 628);
-    let h = '<div class="chart-wrap"><svg viewBox="0 0 640 230" role="img" aria-label="Оценки стажёра и наставника по месяцам с прогнозом" style="width:100%;height:auto;display:block">';
-    h += '<rect x="' + X(ms.length - 1) + '" y="14" width="' + (fxp - X(ms.length - 1)) + '" height="180" fill="#F3F5F9" rx="6"></rect>';
-    if (ch.swap) { const sx = X(ix(ch.swap)) - 49; h += '<line x1="' + sx + '" x2="' + sx + '" y1="14" y2="194" stroke="#C26F00" stroke-width="2" stroke-dasharray="3 3"></line><text x="' + (sx - 4) + '" y="26" font-size="10" fill="#C26F00" text-anchor="end">смена наставника</text>'; }
-    const labels = scale === "cal" ? ["+0.50", "+0.25", "норма", "−0.25", "−0.50"] : ["1.00", "0.75", "0.50", "0.25", "0.00"];
-    [1, 0.75, 0.5, 0.25, 0].forEach((v, k) => { h += '<line x1="40" x2="628" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#E6E9EF"></line><text x="34" y="' + (Y(v) + 3) + '" font-size="10" fill="#5B6478" text-anchor="end">' + labels[k] + "</text>"; });
+    const fxp = Math.min(X(ms.length), G.r);
+    let h = '<div class="chart-wrap"><svg viewBox="0 0 ' + G.w + " " + G.h + '" role="img" aria-label="Оценки стажёра и наставника по месяцам с прогнозом" style="width:100%;height:auto;display:block">';
+    h += '<rect x="' + X(ms.length - 1) + '" y="' + G.t + '" width="' + (fxp - X(ms.length - 1)) + '" height="' + G.ph + '" fill="#F3F5F9" rx="6"></rect>';
+    if (ch.swap) { const sx = X(ix(ch.swap)) - step / 2; h += '<line x1="' + sx + '" x2="' + sx + '" y1="' + G.t + '" y2="' + base + '" stroke="#C26F00" stroke-width="2" stroke-dasharray="3 3"></line><text x="' + (sx - 4) + '" y="' + (G.t + 12) + '" font-size="' + G.fs + '" fill="#C26F00" text-anchor="end">' + (ph ? "смена" : "смена наставника") + "</text>"; }
+    const lab = (v) => (scale === "cal" ? (v === 0.5 ? "норма" : (v > 0.5 ? "+" : "−") + Math.abs(v - 0.5).toFixed(ph ? 1 : 2)) : v.toFixed(ph ? 1 : 2));
+    G.ticks.forEach((v) => { h += '<line x1="' + G.l + '" x2="' + G.r + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#E6E9EF"></line><text x="' + (G.l - 6) + '" y="' + (Y(v) + 4) + '" font-size="' + G.fs + '" fill="#5B6478" text-anchor="end">' + lab(v) + "</text>"; });
     if (ip.length && mp.length) h += '<polygon points="' + ip.concat(mp.slice().reverse()).map((p) => p.join(",")).join(" ") + '" fill="' + fill + '"></polygon>';
     if (ch.fi != null && ch.fm != null && ip.length && mp.length) {
       const li = ip[ip.length - 1], lm = mp[mp.length - 1];
@@ -51,10 +56,12 @@
     }
     h += '<polyline points="' + mp.map((p) => p.join(",")).join(" ") + '" fill="none" stroke="#0E1424" stroke-width="2.5" stroke-dasharray="6 5"></polyline>';
     h += '<polyline points="' + ip.map((p) => p.join(",")).join(" ") + '" fill="none" stroke="#0A7CD6" stroke-width="3"></polyline>';
-    ip.forEach((p) => (h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="#0A7CD6" stroke="#fff" stroke-width="2"></circle>'));
-    mp.forEach((p) => (h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="#0E1424" stroke="#fff" stroke-width="2"></circle>'));
-    ms.forEach((m, i) => (h += '<text x="' + X(i) + '" y="216" font-size="11" fill="#5B6478" text-anchor="middle">' + esc(m.short) + "</text>"));
-    h += '<text x="' + fxp + '" y="216" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(C.next_short) + " · прогноз</text></svg></div>";
+    ip.forEach((p) => (h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + G.dot + '" fill="#0A7CD6" stroke="#fff" stroke-width="2"></circle>'));
+    mp.forEach((p) => (h += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="' + G.dot + '" fill="#0E1424" stroke="#fff" stroke-width="2"></circle>'));
+    ms.forEach((m, i) => (h += '<text x="' + X(i) + '" y="' + (base + 20) + '" font-size="' + G.ms + '" fill="#5B6478" text-anchor="middle">' + esc(m.short) + "</text>"));
+    h += (ph
+      ? '<text x="' + ((X(n - 1) + fxp) / 2) + '" y="' + (G.t + 14) + '" font-size="12" fill="#0A7CD6" text-anchor="middle">' + esc(C.next_short) + "</text>"
+      : '<text x="' + fxp + '" y="' + (base + 20) + '" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(C.next_short) + " · прогноз</text>") + "</svg></div>";
     h += '<div class="row xs" style="gap:16px;margin-top:8px;color:var(--muted-2)"><span class="row nowrap" style="gap:6px"><span style="width:16px;height:3px;background:var(--accent)"></span>Стажёр ' + esc(C.intern) + '</span><span class="row nowrap" style="gap:6px"><span style="width:16px;border-top:3px dashed var(--ink)"></span>Наставник ' + esc(C.mentor) + '</span><span class="row nowrap" style="gap:6px"><span style="width:14px;height:10px;background:' + fill + ';border-radius:2px"></span>Расхождение</span><span class="row nowrap" style="gap:6px"><span style="width:14px;height:10px;background:var(--bg);border:1px solid var(--line-2);border-radius:2px"></span>Прогноз</span></div>';
     return h;
   }
