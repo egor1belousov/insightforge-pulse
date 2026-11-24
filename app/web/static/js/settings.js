@@ -9,17 +9,45 @@
   const fmt = (v) => (Number.isInteger(v) ? String(v) : Number(v).toFixed(2));
   const sw = (on, attrs) => '<button type="button" role="switch" aria-checked="' + on + '" ' + attrs + ' style="width:44px;height:26px;border-radius:999px;border:0;background:' + (on ? "#0A7CD6" : "#C9CFDB") + ';position:relative;cursor:pointer;flex-shrink:0"><span style="position:absolute;top:3px;left:' + (on ? 21 : 3) + 'px;width:20px;height:20px;border-radius:50%;background:#fff"></span></button>';
 
-  async function load() { S = await api("GET", "/api/settings"); render(); }
+  async function load() { S = await api("GET", "/api/settings"); render(); refreshLlm(); }
+  // Сведения о модели берём у Ollama при открытии экрана и раз в 30 секунд
+  async function refreshLlm() {
+    try { S.llm = await api("GET", "/api/llm/status?check=true"); } catch (e) { return; }
+    const c = document.getElementById("llm-card");
+    if (c) { c.innerHTML = llmCard(S.llm); bindLlm(); }
+  }
+  setInterval(() => { if (!document.hidden) refreshLlm(); }, 30000);
+  function llmCard(L) {
+    const I = L.info || {}, st = L.stats || {};
+    const head = L.ok ? "Модель отвечает" + (L.latency != null ? " · " + L.latency + " с" : "") : L.ok === false ? "Модель недоступна — работают запасные правила" : "Проверяем модель…";
+    const dot = L.ok ? "#1E9E5A" : L.ok === false ? "#D23A3A" : "#C9CFDB";
+    const where = /ollama:|localhost|127\.0\.0\.1/.test(L.url || "") ? "локально, данные не покидают сервер" : L.url;
+    const rows = [
+      ["Модель", I.name || L.model],
+      ["Размер", I.params ? I.params + (I.quant ? " · " + I.quant : "") + (I.size_gb ? " · " + I.size_gb + " ГБ" : "") : "—"],
+      ["Видеопамять", I.loaded ? "загружена" + (I.vram_gb ? ", " + I.vram_gb + " ГБ" : "") : L.ok ? "выгружена, первый ответ дольше" : "—"],
+      ["Где работает", "Ollama" + (I.version ? " " + I.version : "") + " · " + where],
+      ["Запросов с запуска", st.calls != null ? st.calls + (st.cached ? " · из памяти " + st.cached : "") + (st.avg_seconds ? " · в среднем " + st.avg_seconds + " с" : "") : "—"],
+      ["Если недоступна", "запасные правила — продукт продолжает работать"],
+    ];
+    let h = '<div class="row between"><p class="eyebrow">ИИ-модель</p><span class="xs muted" id="llm-upd">' + (L.ok != null ? "обновлено " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "") + "</span></div>";
+    h += '<p class="small row nowrap" style="gap:8px"><span style="width:10px;height:10px;border-radius:50%;background:' + dot + ';flex-shrink:0"></span><b>' + head + "</b></p>";
+    h += rows.map(([k, v]) => '<div class="row between small" style="border-bottom:1px solid #EEF0F4;padding:6px 0;gap:12px"><span class="muted">' + k + '</span><span style="text-align:right">' + esc(String(v)) + "</span></div>").join("");
+    if (L.error) h += '<p class="xs" style="color:#962020">' + esc(L.error) + "</p>";
+    h += '<button type="button" class="btn small" id="llm-check" style="align-self:flex-start">Проверить сейчас</button>';
+    return h;
+  }
+  function bindLlm() {
+    const b = document.getElementById("llm-check");
+    if (b) b.addEventListener("click", async () => { b.disabled = true; b.textContent = "Проверяем…"; await refreshLlm(); toast(S.llm.ok ? "Модель отвечает" : "Модель недоступна, работают запасные правила"); });
+  }
   function render() {
     const L = S.llm;
     let h = '<section class="hero"><div class="sphere" aria-hidden="true"></div><p class="tagline">Настройки</p><h1>Интеграции, оповещения, доступ</h1><p class="sub">Пороги и веса — стартовые: согласуем с HR и калибруем на исторических данных. Любое изменение сразу пересчитывает сигналы.</p></section>';
     h += '<div class="widgets"><section class="card col" style="flex:1 1 360px"><p class="eyebrow">Интеграции</p>';
     h += [["Яндекс Формы", "Ответы анкеты по API и вебхуку", S.forms.yandex.enabled], ["Google Forms", "Альтернатива Яндекс Формам", S.forms.google.enabled], ["Рабочая почта", "Приглашения, напоминания, сводки", false], ["Telegram-бот", "Напоминания и ответы в чате", false]].map(([n, d, on]) => '<div class="list-row"><span class="grow small"><b>' + n + '</b><br><span class="xs muted">' + d + '</span></span><span class="chip ' + (on ? "ok" : "") + '">' + (on ? "подключено" : "не подключено") + "</span></div>").join("");
     h += '<p class="xs muted">Подключение — токены в .env (docs/FORMS.md). Без SMTP ссылки приглашений показываются HR на экране.</p></section>';
-    h += '<section class="card col" style="flex:1 1 360px"><p class="eyebrow">ИИ-модель</p><p class="small"><b>' + (L.ok ? "Модель отвечает" + (L.latency ? " · " + L.latency + " с" : "") : L.ok === false ? "Модель недоступна — работают запасные правила" : "Работает локально, данные не покидают сервер") + "</b></p>";
-    h += [["Где работает", "на сервере компании (Ollama)"], ["Модель", L.model], ["Что делает", "разбор комментариев, темы вопросов, объяснение сигналов, повестка, договорённости"], ["Если недоступна", "запасные правила — продукт продолжает работать"]].map(([k, v]) => '<div class="row between small" style="border-bottom:1px solid #EEF0F4;padding:6px 0"><span class="muted">' + k + "</span><span>" + esc(v) + "</span></div>").join("");
-    if (L.error) h += '<p class="xs" style="color:#962020">' + esc(L.error) + "</p>";
-    h += '<button type="button" class="btn small" id="llm-check" style="align-self:flex-start">Проверить модель</button></section></div>';
+    h += '<section class="card col" style="flex:1 1 360px" id="llm-card">' + llmCard(L) + "</section></div>";
     h += '<section class="card col"><p class="eyebrow">Правила оповещений · превью «сработало бы сейчас»</p>';
     RULES.forEach(([k, n, step, ch]) => {
       const r = S.rules[k], hits = S.preview[k] || [];
@@ -37,7 +65,7 @@
   }
   function bind() {
     const $ = (s) => box.querySelector(s);
-    $("#llm-check").addEventListener("click", async (e) => { e.target.disabled = true; e.target.textContent = "Проверяем…"; const r = await api("GET", "/api/llm/status?check=true"); S.llm = r; toast(r.ok ? "Проверка пройдена: модель отвечает" : "Модель недоступна, работают запасные правила"); render(); });
+    bindLlm();
     box.querySelectorAll("[data-rule-on]").forEach((b) => b.addEventListener("click", async () => { const k = b.dataset.ruleOn; S = await api("PUT", "/api/settings", { rules: { [k]: { ...S.rules[k], on: !S.rules[k].on } } }); render(); }));
     box.querySelectorAll("[data-rule]").forEach((b) => b.addEventListener("click", async () => { const k = b.dataset.rule, v = Math.max(0, Math.round((S.rules[k].value + Number(b.dataset.d)) * 100) / 100); S = await api("PUT", "/api/settings", { rules: { [k]: { ...S.rules[k], value: v } } }); render(); }));
     box.querySelectorAll("[data-an]").forEach((b) => b.addEventListener("click", async () => { const k = b.dataset.an, v = Math.max(0, Math.round((S.analytics[k] + Number(b.dataset.d)) * 100) / 100); S = await api("PUT", "/api/settings", { analytics: { [k]: v } }); toast("Сигналы пересчитаны с новым порогом"); render(); }));

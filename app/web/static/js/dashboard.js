@@ -136,7 +136,6 @@
     h += '<button type="button" class="btn on-dark" id="edit-btn" aria-pressed="' + edit + '"' + (edit ? ' style="background:#fff;color:#05070E"' : "") + '><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>' + (edit ? "Готово" : "Настроить") + "</button></div></div></section>";
     h += '<section class="card row" aria-label="Фильтры дашборда" style="gap:14px 28px;align-items:flex-end;padding:14px 18px"><div class="col" style="flex:1 1 320px;gap:6px"><label for="f-month" class="xs muted" style="font-weight:700;letter-spacing:.06em">ПЕРИОД · ДАННЫЕ НА ' + esc(ms[idx].full.toUpperCase()) + '</label><input id="f-month" type="range" min="0" max="' + (ms.length - 1) + '" step="1" value="' + idx + '" style="width:100%;accent-color:#0A7CD6;min-height:28px;cursor:pointer" aria-valuetext="' + esc(ms[idx].full) + '"><div class="row between nowrap" style="font-size:11px">' + ms.map((m, i) => '<span style="color:' + (i === idx ? "#0A7CD6" : "#5B6478") + ";font-weight:" + (i === idx ? 700 : 400) + '">' + esc(m.short) + "</span>").join("") + "</div></div>";
     h += '<div class="col" style="flex:2 1 440px;gap:6px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">ПОДРАЗДЕЛЕНИЕ</span><div class="row" style="gap:6px">' + [["all", "Все подразделения"]].concat(D.depts.map((d) => [d, d])).map(([k, n]) => '<button type="button" class="pill" data-dept="' + esc(k) + '" aria-pressed="' + (dept === k) + '">' + esc(n) + "</button>").join("") + "</div></div>";
-    if (D.period !== D.last) h += '<button type="button" class="btn soft small" id="to-last">Вернуться к ' + esc(ms[ms.length - 1].full) + "</button>";
     h += "</section>";
     if (edit) {
       const shelf = Object.keys(META).filter((k) => L.hidden[k] && allowed(k));
@@ -162,7 +161,6 @@
   function bind() {
     const $ = (s) => box.querySelector(s);
     $("#f-month").addEventListener("input", (e) => { const v = D.months[+e.target.value].p; if (v !== period) { period = v; load(); } });
-    if ($("#to-last")) $("#to-last").addEventListener("click", () => { period = D.last; load(); });
     box.querySelectorAll("[data-dept]").forEach((b) => b.addEventListener("click", () => { dept = b.dataset.dept; load(); }));
     $("#edit-btn").addEventListener("click", () => { if (edit) toast("Раскладка сохранена для вас"); edit = !edit; render(); });
     $("#rep-btn").addEventListener("click", () => (window.PulseReport ? window.PulseReport.open(dept) : toast("Отчёт будет доступен в разделе «Отчёт»")));

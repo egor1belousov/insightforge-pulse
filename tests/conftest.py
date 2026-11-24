@@ -5,6 +5,8 @@ _tmp = tempfile.mkdtemp()
 os.environ["DATABASE_URL"] = f"sqlite:///{_tmp}/test.db"
 os.environ["LLM_ENABLED"] = "false"
 os.environ["APP_ENV"] = "dev"
+os.environ["DEMO_POOL_SIZE"] = "0"
+os.environ["DEMO_SANDBOX"] = "false"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

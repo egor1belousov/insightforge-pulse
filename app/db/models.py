@@ -32,6 +32,10 @@ class Organization(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # Песочница демо: своя копия демо-организации на каждый браузер
+    sandbox_token: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    sandbox_claimed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    sandbox_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class Program(Base):

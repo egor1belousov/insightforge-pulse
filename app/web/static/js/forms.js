@@ -27,7 +27,7 @@
     h += '<div class="bar thick"><span style="width:' + Math.round((M.got / Math.max(1, M.total)) * 100) + '%;background:#0A7CD6"></span></div><div class="scroll-x"><table class="tbl"><thead><tr><th>Участник</th><th>Пара</th><th>Анкета</th><th>Статус</th><th></th></tr></thead><tbody>';
     M.rows.forEach((r) => {
       const cls = r.status === "заполнено" ? "ok" : r.status === "напомнили" ? "warn" : "bad";
-      h += "<tr><td><b>" + esc(r.external_id) + "</b></td><td>" + esc(r.pair) + "</td><td>" + (r.side === "intern" ? "Стажёр" : "Наставник") + " · " + r.questions + ' вопр.</td><td><span class="chip ' + cls + '">' + esc(r.status) + '</span></td><td class="row nowrap" style="gap:6px">' + (r.status !== "заполнено" ? '<button type="button" class="btn small" data-remind="' + esc(r.external_id) + '">Напомнить</button>' : "") + '<a class="btn ghost small" href="' + esc(r.link) + '" target="_blank" rel="noopener">Анкета</a></td></tr>';
+      h += "<tr><td><b>" + esc(r.external_id) + "</b></td><td>" + esc(r.pair) + "</td><td>" + (r.side === "intern" ? "Стажёр" : "Наставник") + " · " + r.questions + ' вопр.</td><td><span class="chip ' + cls + '">' + esc(r.status) + '</span></td><td class="row nowrap" style="gap:6px">' + (r.status !== "заполнено" ? '<button type="button" class="btn small" data-remind="' + esc(r.external_id) + '">Напомнить</button>' : "") + (r.response_id ? '<button type="button" class="btn ghost small" data-answers="' + r.response_id + '">Ответы</button>' : '<button type="button" class="btn ghost small" data-copy="' + esc(location.origin + r.link) + '" title="Личная ссылка участника — можно отправить вручную">Ссылка</button>') + "</td></tr>";
     });
     h += '</tbody></table></div><p class="xs muted">Следующая рассылка — в начале месяца «' + esc(M.next) + "». Ссылка на анкету личная, открывается с телефона без пароля.</p></section>";
     h += '<section class="card col" style="flex:1 1 300px"><p class="eyebrow">Каналы</p>' + CH.map(([k, n, d]) => '<div class="row nowrap" style="gap:12px;padding:6px 0"><span class="grow"><b class="small">' + n + '</b><br><span class="xs muted">' + d + "</span></span>" + sw(!!M.channels[k], 'data-ch="' + k + '" aria-label="' + n + '"') + "</div>").join("");
@@ -59,10 +59,25 @@
     if (window.PULSE_DEMO) h += '<button type="button" class="btn" id="demo-resp" style="align-self:flex-start">Отправить тестовый ответ</button>';
     return h + "</section></div>";
   }
+  async function showAnswers(id) {
+    const R = await api("GET", "/api/forms/responses/" + id);
+    const who = (R.side === "intern" ? "Стажёр " : "Наставник ") + R.external_id;
+    const rows = R.answers.map((a) => {
+      const scale = a.qtype !== "text" && a.value != null && a.max != null;
+      const pct = scale ? Math.round(((Number(a.value) - (a.min ?? 0)) / Math.max(1, a.max - (a.min ?? 0))) * 100) : 0;
+      return '<div class="col" style="gap:6px;padding:12px 0;border-bottom:1px solid var(--line, #EEF0F4)"><span class="small"><b>' + esc(a.question) + "</b>" + (a.topic ? ' <span class="chip">' + esc(a.topic) + "</span>" : "") + "</span>" +
+        (scale ? '<div class="row nowrap" style="gap:10px"><span class="bar" style="flex:1"><span style="width:' + pct + '%;background:#0A7CD6"></span></span><b class="small" style="min-width:56px;text-align:right">' + esc(a.value) + " из " + a.max + "</b></div>" : "") +
+        (a.text ? '<p class="small" style="background:#F3F5F9;border-radius:12px;padding:10px 12px;line-height:1.5">«' + esc(a.text) + "»</p>" : a.qtype === "text" ? '<p class="xs muted">без комментария</p>' : "") + "</div>";
+    }).join("");
+    Pulse.modal('<div class="modal" role="dialog" aria-modal="true" aria-labelledby="ans-t"><div class="row between"><div><p class="eyebrow">Анкета за ' + esc(R.month) + '</p><h2 class="head" id="ans-t" style="font-size:20px">' + esc(who) + '</h2></div><button type="button" class="icon-btn" data-close aria-label="Закрыть">×</button></div><div class="col" style="gap:0">' + (rows || '<p class="small muted">Ответов нет.</p>') + '</div><p class="xs muted">Только для чтения. Ответы видит HR; другая сторона пары их не видит.</p></div>');
+  }
+
   function bind() {
     box.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; history.replaceState(null, "", "/forms?tab=" + tab); load(); }));
     box.querySelectorAll("[data-remind]").forEach((b) => b.addEventListener("click", async () => { const r = await api("POST", "/api/forms/remind", { ids: b.dataset.remind.split(",") }); toast(r.message); load(); }));
     box.querySelectorAll("[data-ch]").forEach((b) => b.addEventListener("click", async () => { M.channels = await api("PUT", "/api/forms/channels", { ...M.channels, [b.dataset.ch]: !M.channels[b.dataset.ch] }); render(); }));
+    box.querySelectorAll("[data-answers]").forEach((b) => b.addEventListener("click", () => showAnswers(b.dataset.answers)));
+    box.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast("Ссылка скопирована — её можно отправить участнику"); } catch (e) { toast(b.dataset.copy); } }));
     box.querySelectorAll("[data-pv]").forEach((b) => b.addEventListener("click", () => { pv = b.dataset.pv; render(); }));
     box.querySelectorAll("[data-side]").forEach((b) => b.addEventListener("click", () => { side = b.dataset.side; sug = null; render(); }));
     const go = box.querySelector("#nq-go");

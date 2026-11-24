@@ -214,3 +214,17 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .landing footer { background: var(--black); padding: 16px; margin-top: 64px; }
 .landing footer .in { border: 1px solid rgba(255,255,255,0.26); border-radius: 26px; padding: 40px clamp(18px, 4vw, 52px); display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; }
 #page > .seg, #dash > .seg { align-self: flex-start; }
+
+/* Формулы в справочнике */
+code.formula {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: .92em;
+  background: #EEF3FF;
+  color: #1D3F8F;
+  border-radius: 6px;
+  padding: 2px 6px;
+  white-space: normal;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.tbl td code.formula { display: inline-block; line-height: 1.5; }

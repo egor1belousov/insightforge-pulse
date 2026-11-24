@@ -1,6 +1,6 @@
 """Регистрация, вход, приглашения."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -9,7 +9,7 @@ from app.core.security import CSRF_COOKIE, SESSION_COOKIE, login_limiter, make_s
 from app.core.settings import get_settings
 from app.db.models import Invite, Participant, User
 from app.db.session import get_db
-from app.services import accounts
+from app.services import accounts, sandbox
 
 router = APIRouter(prefix="/api/auth", tags=["вход"])
 
@@ -53,6 +53,22 @@ def start_session(resp: Response, user: User) -> None:
     resp.set_cookie(CSRF_COOKIE, new_token(16), httponly=False, samesite="lax", secure=secure, max_age=hours)
 
 
+def demo_session(request: Request, resp: Response, db: Session, role: str) -> User:
+    """Вход в демо: аккаунт роли в песочнице этого браузера."""
+    org = sandbox.claim(db, request.cookies.get(sandbox.SANDBOX_COOKIE))
+    user = sandbox.user_for(db, org, role)
+    start_session(resp, user)
+    resp.set_cookie(
+        sandbox.SANDBOX_COOKIE,
+        org.sandbox_token or "",
+        httponly=True,
+        samesite="lax",
+        secure=not get_settings().is_dev,
+        max_age=get_settings().demo_sandbox_hours * 3600,
+    )
+    return user
+
+
 def user_out(db: Session, user: User) -> dict:
     """Публичные сведения о пользователе."""
     part = db.query(Participant).filter(Participant.user_id == user.id).first()
@@ -81,14 +97,17 @@ def register(data: RegisterIn, resp: Response, db: Session = Depends(get_db)) ->
 
 
 @router.post("/login")
-def login(data: LoginIn, resp: Response, db: Session = Depends(get_db)) -> dict:
+def login(data: LoginIn, request: Request, resp: Response, db: Session = Depends(get_db)) -> dict:
     if not login_limiter.allow(data.email, get_settings().login_attempts_per_minute):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Слишком много попыток. Подождите минуту.")
     try:
         user = accounts.authenticate(db, data.email, data.password)
     except accounts.AccountError as e:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(e)) from e
-    start_session(resp, user)
+    if sandbox.enabled() and user.email in sandbox.DEMO_EMAILS:
+        user = demo_session(request, resp, db, user.role)
+    else:
+        start_session(resp, user)
     return user_out(db, user)
 
 

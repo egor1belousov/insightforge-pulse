@@ -32,7 +32,7 @@
         <b>{{ me.name }}</b>
         <span class="xs muted">{{ me.email }}</span>
         <span class="xs muted">{{ me.role_label }} · {{ me.scope }}</span>
-        {% if me.role == 'hr' %}<a class="btn small" href="/settings" style="justify-content:flex-start;">Настройки: интеграции, оповещения, доступ</a>{% endif %}
+        {% if me.role == 'hr' %}<a class="btn small" href="/settings" style="justify-content:flex-start;white-space:normal;text-align:left;height:auto;min-height:36px;">Настройки</a>{% endif %}
         <button type="button" class="btn small" id="logout-btn" style="justify-content:flex-start;">Выйти</button>
       </div>
     </div>

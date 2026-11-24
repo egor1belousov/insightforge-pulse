@@ -41,12 +41,9 @@ def reset_db() -> None:
     Base.metadata.create_all(engine)
 
 
-def seed_accounts(db: Session) -> Program:
-    """Создаёт организацию, программу и демо-аккаунты, если их нет."""
-    existing = db.query(User).filter(User.email == "hr@pulse.demo").first()
-    if existing:
-        return db.get(Program, existing.program_id)
-    org = Organization(name="МГТС (демо)")
+def create_org(db: Session, users=DEMO_USERS, sandbox_token: str | None = None) -> Program:
+    """Создаёт организацию, программу и аккаунты всех ролей."""
+    org = Organization(name="МГТС (демо)", sandbox_token=sandbox_token)
     db.add(org)
     db.flush()
     prog = Program(organization_id=org.id, name="Стажировка 2026", start_date=date(2026, 6, 1), months=6)
@@ -54,7 +51,7 @@ def seed_accounts(db: Session) -> Program:
     db.flush()
     ensure_topics(db, org.id)
     pwd = hash_password(get_settings().demo_password)
-    for email, name, role, ext in DEMO_USERS:
+    for email, name, role, ext in users:
         user = User(
             email=email, password_hash=pwd, name=name, role=role, organization_id=org.id, program_id=prog.id
         )
@@ -64,6 +61,14 @@ def seed_accounts(db: Session) -> Program:
             db.add(Participant(program_id=prog.id, external_id=ext, side=role, user_id=user.id))
     db.commit()
     return prog
+
+
+def seed_accounts(db: Session) -> Program:
+    """Создаёт организацию, программу и демо-аккаунты, если их нет."""
+    existing = db.query(User).filter(User.email == "hr@pulse.demo").first()
+    if existing:
+        return db.get(Program, existing.program_id)
+    return create_org(db)
 
 
 def demo_schema() -> dict:
