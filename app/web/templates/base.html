@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  // Тема до первой отрисовки: выбор пользователя или системная
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("pulse-theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
 <title>{% block title %}Пульс адаптации{% endblock %} · InsightForge</title>
 <link rel="icon" href="/static/icons/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}">
@@ -11,6 +20,7 @@
 <body>
 {% block body %}{% endblock %}
 <script src="/static/js/core.js?v={{ asset_v }}"></script>
+<script src="/static/js/orbs.js?v={{ asset_v }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

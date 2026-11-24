@@ -2,33 +2,39 @@
 {% block title %}Два взгляда на одну стажировку{% endblock %}
 {% block body %}
 <div class="landing">
-  <div class="frame"><div class="stage">
-    <div class="orb1" aria-hidden="true"></div><div class="orb2" aria-hidden="true"></div>
+  <div class="frame"><section class="stage" aria-label="Пульс адаптации">
+    <div class="orb st-orb o1" data-orb="lattice" data-size="760" data-tilt="0.35" aria-hidden="true"></div>
+    <div class="orb st-orb o2" data-orb="mesh" data-size="700" data-tilt="0.15" aria-hidden="true"></div>
+    <div class="orb st-orb o3" data-orb="dots" data-size="520" data-tilt="0.6" aria-hidden="true"></div>
+    <div class="orb st-orb o4" data-orb="lattice" data-size="300" data-tilt="0.9" aria-hidden="true"></div>
     <header class="top">
-      <div class="row nowrap" style="gap:12px"><div class="mgts">МГТС</div><div class="if">IF</div><span style="width:1px;height:18px;background:rgba(255,255,255,.35)"></span><span style="color:#C9D1E6;font-size:14px">Пульс адаптации</span></div>
+      <div class="row nowrap" style="gap:12px"><div class="mgts">МГТС</div><div class="if">IF</div><span class="sep"></span><span class="brand-name">Пульс адаптации</span></div>
       <nav aria-label="Разделы главной"><a href="#types">Сигналы</a><a href="#how">Как работает</a><a href="#roles">Роли</a></nav>
-      <a class="white-btn" href="/login">Войти →</a>
+      <div class="row nowrap" style="gap:12px">{% include "_theme_toggle.html" %}<a class="white-btn" href="/login">Войти <span aria-hidden="true">→</span></a></div>
     </header>
-    <div class="hero-row">
-      <div style="flex:1 1 460px;min-width:0">
-        <p style="margin:0 0 16px;color:#8EA0D0;font-size:12px;letter-spacing:.12em">ПРОГРАММА СТАЖИРОВОК · МГТС</p>
-        <h1>Два взгляда на одну стажировку</h1>
-        <p class="lead">Стажёр и наставник раз в месяц отвечают на короткую анкету. Мы следим, как расходятся их оценки, объясняем почему — и подсказываем HR действие, пока проблему ещё можно решить разговором.</p>
-        <div class="row" style="gap:12px;margin-top:30px"><a class="cta" href="/login">Войти в систему <span>→</span></a>{% if demo %}<a class="demo-link" href="/demo/hr">Открыть демо без ввода пароля</a>{% endif %}</div>
-      </div>
-      <div class="preview">
-        <div class="row between"><p style="color:#9AA6C6;font-size:12px;letter-spacing:.08em">ПАРА П-02 · САМОСТОЯТЕЛЬНОСТЬ</p><span class="chip warn">расхождение растёт</span></div>
-        <svg viewBox="0 0 400 170" role="img" aria-label="Пример: оценка стажёра растёт, оценка наставника падает" style="width:100%;height:auto;display:block;margin-top:10px">
-          <polygon points="10,78 86,66 162,54 238,44 314,38 390,32 390,128 314,120 238,112 162,104 86,94 10,88" fill="rgba(226,139,0,0.22)"></polygon>
-          <polyline points="10,78 86,66 162,54 238,44 314,38 390,32" fill="none" stroke="#4DA3FF" stroke-width="3"></polyline>
-          <polyline points="10,88 86,94 162,104 238,112 314,120 390,128" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-dasharray="6 5"></polyline>
-          <text x="10" y="162" font-size="11" fill="#9AA6C6">июнь</text><text x="390" y="162" font-size="11" fill="#9AA6C6" text-anchor="end">ноябрь</text>
-        </svg>
-        <div class="row xs" style="gap:16px;color:#C9D1E6"><span class="row nowrap" style="gap:6px"><span style="width:16px;height:3px;background:#4DA3FF"></span>стажёр</span><span class="row nowrap" style="gap:6px"><span style="width:16px;border-top:3px dashed #fff"></span>наставник</span></div>
-        <p class="small" style="margin-top:12px;color:#B6BFD8;line-height:1.5">Наставник видит спад с сентября, стажёр — нет. Рекомендация: встреча втроём до аттестации.</p>
-      </div>
+    <div class="center">
+      <p class="kicker">ПРОГРАММА СТАЖИРОВОК · МГТС</p>
+      <h1 data-split>Два взгляда на одну стажировку</h1>
+      <p class="lead">Стажёр и наставник раз в месяц отвечают на короткую анкету. Мы видим, где их оценки расходятся, объясняем почему и подсказываем HR действие, пока проблему можно решить разговором.</p>
+      <div class="row cta-row"><a class="cta" href="{% if demo %}/demo/hr{% else %}/login{% endif %}">{% if demo %}Открыть демо{% else %}Войти в систему{% endif %} <span aria-hidden="true">→</span></a>{% if demo %}<a class="demo-link" href="/login">Войти по почте и паролю</a>{% endif %}</div>
     </div>
-  </div></div>
+    <div class="glass g1"><p class="gk">01 / АНКЕТА</p><b>Два взгляда раз в месяц</b><p>Стажёр и наставник отвечают на шесть зеркальных вопросов за две минуты.</p></div>
+    <div class="glass g2"><p class="gk">02 / СИГНАЛ</p><b>Расхождение с причиной</b><p>Уровень, тренд, запаздывание, слова ≠ цифры — у каждого типа своё действие.</p></div>
+    <div class="glass g3 preview">
+      <div class="row between nowrap" style="gap:10px"><p class="gk">03 / ПАРА П-02</p><span class="chip warn">расхождение растёт</span></div>
+      <svg viewBox="0 0 400 170" role="img" aria-label="Пример: оценка стажёра растёт, оценка наставника падает" class="pv-chart">
+        <defs><linearGradient id="gap" x1="0" x2="1"><stop offset="0" stop-color="#E28B00" stop-opacity="0.05"></stop><stop offset="1" stop-color="#E28B00" stop-opacity="0.32"></stop></linearGradient></defs>
+        <line x1="10" x2="390" y1="40" y2="40" class="grid-l"></line><line x1="10" x2="390" y1="80" y2="80" class="grid-l"></line><line x1="10" x2="390" y1="120" y2="120" class="grid-l"></line>
+        <polygon points="10,78 86,66 162,54 238,44 314,38 390,32 390,128 314,120 238,112 162,104 86,94 10,88" fill="url(#gap)"></polygon>
+        <polyline points="10,78 86,66 162,54 238,44 314,38 390,32" fill="none" stroke="#4DA3FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <polyline points="10,88 86,94 162,104 238,112 314,120 390,128" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mentor-l"></polyline>
+        <circle cx="390" cy="32" r="4.5" fill="#4DA3FF" class="pt"></circle><circle cx="390" cy="128" r="4.5" fill="currentColor" class="pt mentor-l"></circle>
+        <text x="10" y="162" font-size="11" class="ax">июнь</text><text x="390" y="162" font-size="11" class="ax" text-anchor="end">ноябрь</text>
+      </svg>
+      <div class="row xs legend"><span class="row nowrap" style="gap:6px"><span style="width:16px;height:3px;border-radius:2px;background:#4DA3FF"></span>стажёр</span><span class="row nowrap" style="gap:6px"><span style="width:16px;height:3px;border-radius:2px;background:currentColor"></span>наставник</span></div>
+      <p class="small note">Наставник видит спад с сентября, стажёр — нет. Рекомендация: встреча втроём до аттестации.</p>
+    </div>
+  </section></div>
 
   <section id="types" class="block">
     <div class="row between" style="align-items:flex-end;gap:20px"><h2 style="max-width:620px">Расхождение бывает разным — мы различаем четыре типа</h2><p class="muted" style="max-width:400px;line-height:1.6">Одна цифра «разница оценок» скрывает причину. Раскладываем её на части, у каждой — своё действие.</p></div>
@@ -47,7 +53,7 @@
       <div class="step"><b>Сигналы</b><p class="small muted" style="margin-top:6px;line-height:1.55">Каждый вопрос привязан к теме и имеет «зеркальный» вопрос другой стороне.</p></div>
       <div class="step"><b>Диагноз</b><p class="small muted" style="margin-top:6px;line-height:1.55">Четыре типа расхождения, индекс здоровья пары, прогноз, системные сигналы.</p></div>
       <div class="step"><b>Действие</b><p class="small muted" style="margin-top:6px;line-height:1.55">Повестка встречи от ИИ, договорённости «кто — что — когда», курс, памятка наставнику.</p></div>
-      <div class="step" style="border-top-color:#05070E"><b>Проверка</b><p class="small muted" style="margin-top:6px;line-height:1.55">Следующая анкета показывает, сработало ли действие.</p></div>
+      <div class="step" style="border-top-color:var(--ink)"><b>Проверка</b><p class="small muted" style="margin-top:6px;line-height:1.55">Следующая анкета показывает, сработало ли действие.</p></div>
     </div>
   </section>
 
@@ -55,12 +61,12 @@
     <div class="row between" style="align-items:flex-end;gap:20px"><h2>Один интерфейс — четыре роли</h2><p class="muted" style="max-width:420px;line-height:1.6">Стажёр и наставник не видят ответы друг друга — только общие темы для разговора. Иначе анкеты перестанут быть честными.</p></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:28px">
       {% for r in roles %}
-      <div class="tile"><p class="xs" style="color:#0A7CD6;font-weight:600;letter-spacing:.06em">{{ r.tag }}</p><h3 style="font-size:18px">{{ r.label }}</h3><p class="small muted grow" style="line-height:1.55">{{ r.desc }}</p>
-        <a href="{% if demo %}/demo/{{ r.key }}{% else %}/login{% endif %}" style="border-top:1px solid #E3E6EC;padding-top:14px;font-size:13px;font-weight:600;color:#0E1424;min-height:44px;display:flex;justify-content:space-between;text-decoration:none">Войти как {{ r.short }} <span>→</span></a></div>
+      <div class="tile"><p class="xs" style="color:var(--accent);font-weight:600;letter-spacing:.06em">{{ r.tag }}</p><h3 style="font-size:18px">{{ r.label }}</h3><p class="small muted grow" style="line-height:1.55">{{ r.desc }}</p>
+        <a href="{% if demo %}/demo/{{ r.key }}{% else %}/login{% endif %}" style="border-top:1px solid var(--line);padding-top:14px;font-size:13px;font-weight:600;color:var(--ink);min-height:44px;display:flex;justify-content:space-between;text-decoration:none">Войти как {{ r.short }} <span>→</span></a></div>
       {% endfor %}
     </div>
   </section>
 
-  <footer><div class="in"><div><p class="head" style="font-size:clamp(22px,2.6vw,34px);color:#fff">Наставнику — время, HR — ясность</p><p class="small" style="margin-top:10px;color:#9AA6C6">Команда InsightForge · кейс-чемпионат «Код города» · данные анонимны, ИИ работает локально</p></div><a class="white-btn" href="/login" style="font-size:15px;min-height:48px">Войти →</a></div></footer>
+  <footer><div class="in"><div class="orb st-orb of" data-orb="mesh" data-size="520" aria-hidden="true"></div><div style="position:relative"><p class="head" style="font-size:clamp(22px,2.6vw,34px);color:#fff">Наставнику — время, HR — ясность</p><p class="small" style="margin-top:10px;color:#9AA6C6">Команда InsightForge · кейс-чемпионат «Код города» · данные анонимны, ИИ работает локально</p></div><a class="white-btn" href="{% if demo %}/demo/hr{% else %}/login{% endif %}" style="font-size:15px;min-height:48px;position:relative">{% if demo %}Открыть демо{% else %}Войти{% endif %} <span aria-hidden="true">→</span></a></div></footer>
 </div>
 {% endblock %}

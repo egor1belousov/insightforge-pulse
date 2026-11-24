@@ -6,6 +6,7 @@
 """
 
 import logging
+import re
 import threading
 import time
 from datetime import datetime, timedelta
@@ -30,6 +31,11 @@ DEMO_EMAILS = {email: role for role, email in DEMO_ROLES.items()}
 
 _lock = threading.Lock()
 _refill = threading.Event()
+
+
+def public_email(email: str) -> str:
+    """Почта для показа: в песочнице hr+токен@pulse.demo превращается в hr@pulse.demo."""
+    return re.sub(r"\+[a-z0-9]+@pulse\.demo$", "@pulse.demo", email)
 
 
 def enabled() -> bool:

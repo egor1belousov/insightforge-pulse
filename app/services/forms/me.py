@@ -125,6 +125,10 @@ def my_data(db: Session, program: Program, part: Participant) -> dict:
         "period_name": month_name(program, period),
         "next_name": month_name(program, period + 1),
         "month_number": period,
+        "months": [
+            {"n": m, "name": month_name(program, m), "done": m in {r.period for r in resps}}
+            for m in range(1, max(program.months or 6, period) + 1)
+        ],
         "submitted": submitted,
         "questionnaire": None
         if qn is None

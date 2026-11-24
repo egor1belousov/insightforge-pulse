@@ -12,14 +12,14 @@
   function render() {
     const title = staff ? "Обучение" : role === "mentor" ? "Памятки и тесты" : "Мои курсы и тесты";
     const sub = isHr ? "Загружайте курсы, создавайте тесты с ИИ, держите методику под рукой." : staff ? "Справочник по методике и каталог курсов программы." : "Назначено по результатам ваших анкет.";
-    let h = '<section class="hero"><div class="sphere" aria-hidden="true"></div><p class="tagline">Обучение</p><h1>' + title + '</h1><p class="sub">' + sub + '</p></section><div class="seg" role="tablist">' + TABS.map(([k, n]) => '<button type="button" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + n + "</button>").join("") + "</div>";
+    let h = '<section class="hero"><div class="sphere orb" data-orb="dots" data-size="560" aria-hidden="true"></div><p class="tagline">Обучение</p><h1>' + title + '</h1><p class="sub">' + sub + '</p></section><div class="seg" role="tablist">' + TABS.map(([k, n]) => '<button type="button" role="tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + n + "</button>").join("") + "</div>";
     h += tab === "courses" ? courses() : tab === "tests" ? tests() : guide();
     box.innerHTML = h; bind();
   }
   function courseCard(c) {
     let h = '<section class="card col" style="gap:8px"><div class="row" style="gap:6px"><span class="chip info">' + esc(c.kind) + '</span><span class="chip">' + esc(c.duration || "") + '</span><span class="xs muted">' + esc(TOP[c.topic] || "") + '</span></div><b>' + esc(c.title) + '</b><p class="small muted" style="line-height:1.5">' + esc(c.description) + "</p>";
-    if (c.progress != null) h += '<div class="bar"><span style="width:' + c.progress + '%;background:#0A7CD6"></span></div><div class="row between"><span class="xs muted">Пройдено ' + c.progress + "%" + (c.reason ? " · " + esc(c.reason) : "") + '</span>' + (c.progress < 100 ? '<button type="button" class="btn small" data-done="' + c.id + '">Отметить пройденным</button>' : '<span class="chip ok">пройдено</span>') + "</div>";
-    if (staff) h += '<p class="xs muted" style="border-top:1px solid #EEF0F4;padding-top:8px">Назначено: ' + (c.assigned.length ? esc(c.assigned.join(", ")) : "никому") + "</p>";
+    if (c.progress != null) h += '<div class="bar"><span style="width:' + c.progress + '%;background:var(--accent)"></span></div><div class="row between"><span class="xs muted">Пройдено ' + c.progress + "%" + (c.reason ? " · " + esc(c.reason) : "") + '</span>' + (c.progress < 100 ? '<button type="button" class="btn small" data-done="' + c.id + '">Отметить пройденным</button>' : '<span class="chip ok">пройдено</span>') + "</div>";
+    if (staff) h += '<p class="xs muted" style="border-top:1px solid var(--soft);padding-top:8px">Назначено: ' + (c.assigned.length ? esc(c.assigned.join(", ")) : "никому") + "</p>";
     if (isHr) h += '<div class="row" style="gap:6px"><button type="button" class="btn small" data-assign="' + c.id + '">Назначить паре</button><button type="button" class="btn small" data-gen="' + c.id + '">Создать тест · ИИ</button></div>';
     return h + "</section>";
   }
@@ -33,8 +33,8 @@
   function testsStaff() {
     let h = "";
     if (draft) {
-      h += '<section class="card col" style="border:1px solid #0A7CD6"><div class="row between"><p class="eyebrow">Черновик · ' + esc(draft.title) + " · " + (draft.generated_by === "llm" ? "составил ИИ" : "составлен правилами") + '</p><span class="xs muted">Проверьте вопросы: снимите галочку с неудачных</span></div>';
-      draft.questions.forEach((q) => { h += '<label class="row nowrap top" style="gap:10px;border-bottom:1px solid #EEF0F4;padding:8px 0;cursor:pointer"><input type="checkbox" data-q="' + q.id + '"' + (q.enabled ? " checked" : "") + ' style="width:20px;height:20px;accent-color:#0A7CD6;margin-top:2px"><span class="grow"><b class="small">' + esc(q.text) + '</b><br><span class="xs muted">' + q.options.map((o, i) => (i === q.correct ? "✓ " : "") + esc(o)).join(" · ") + "</span></span></label>"; });
+      h += '<section class="card col" style="border:1px solid var(--accent)"><div class="row between"><p class="eyebrow">Черновик · ' + esc(draft.title) + " · " + (draft.generated_by === "llm" ? "составил ИИ" : "составлен правилами") + '</p><span class="xs muted">Проверьте вопросы: снимите галочку с неудачных</span></div>';
+      draft.questions.forEach((q) => { h += '<label class="row nowrap top" style="gap:10px;border-bottom:1px solid var(--soft);padding:8px 0;cursor:pointer"><input type="checkbox" data-q="' + q.id + '"' + (q.enabled ? " checked" : "") + ' style="width:20px;height:20px;accent-color:var(--accent);margin-top:2px"><span class="grow"><b class="small">' + esc(q.text) + '</b><br><span class="xs muted">' + q.options.map((o, i) => (i === q.correct ? "✓ " : "") + esc(o)).join(" · ") + "</span></span></label>"; });
       h += '<div class="row"><button type="button" class="btn primary" id="t-pub">Опубликовать и назначить тем, кому назначен курс</button><button type="button" class="btn" id="t-cancel">Свернуть</button></div></section>';
     }
     h += '<section class="card col"><p class="eyebrow">Тесты</p>' + (L.tests.length ? L.tests.map((t) => '<div class="list-row"><span class="grow small"><b>' + esc(t.title) + "</b> · " + t.questions.filter((q) => q.enabled).length + ' вопр.<br><span class="xs muted">' + (t.status === "published" ? "опубликован" : "черновик") + " · " + (t.generated_by === "llm" ? "создан ИИ, проверен HR" : "создан правилами") + (t.assigned.length ? " · назначен: " + esc(t.assigned.join(", ")) : "") + (t.results.length ? " · результаты: " + t.results.map((r) => esc(r.who) + " " + Math.round(r.score * 100) + "%").join(", ") : "") + "</span></span>" + (isHr && t.status !== "published" ? '<button type="button" class="btn small" data-open="' + t.id + '">Проверить</button>' : "") + "</div>").join("") : '<p class="small muted">Тестов пока нет. Откройте «Курсы» и нажмите «Создать тест · ИИ».</p>') + "</section>";
@@ -49,9 +49,9 @@
         h += '<fieldset class="col" style="border:0;padding:0;margin:0;gap:6px"><legend class="small" style="font-weight:600;margin-bottom:6px">' + (i + 1) + ". " + esc(q.text) + "</legend>";
         q.options.forEach((o, k) => {
           const on = r ? r.chosen === k : picked[q.id] === k, good = r && k === r.correct, bad = r && on && !r.ok;
-          h += '<button type="button" class="btn" data-tq="' + t.id + '" data-q="' + q.id + '" data-k="' + k + '" aria-pressed="' + on + '"' + (r ? " disabled" : "") + ' style="justify-content:flex-start;text-align:left;white-space:normal;border-radius:12px;' + (good ? "background:#E9F6EE;border-color:#1F8F4E" : bad ? "background:#FDECEC;border-color:#C93434" : on ? "border-color:#0A7CD6;background:#EAF2FF" : "") + '">' + esc(o) + "</button>";
+          h += '<button type="button" class="btn" data-tq="' + t.id + '" data-q="' + q.id + '" data-k="' + k + '" aria-pressed="' + on + '"' + (r ? " disabled" : "") + ' style="justify-content:flex-start;text-align:left;white-space:normal;border-radius:12px;' + (good ? "background:var(--ok-bg);border-color:var(--ok)" : bad ? "background:var(--both-bg);border-color:var(--both)" : on ? "border-color:var(--accent);background:var(--accent-soft)" : "") + '">' + esc(o) + "</button>";
         });
-        if (r && !r.ok) h += '<p class="xs" style="color:#962020">' + esc(r.explanation) + "</p>";
+        if (r && !r.ok) h += '<p class="xs" style="color:var(--both-fg)">' + esc(r.explanation) + "</p>";
         h += "</fieldset>";
       });
       if (t.score == null) h += '<button type="button" class="btn primary" data-submit="' + t.id + '" style="align-self:flex-start">Проверить ответы</button>';
@@ -62,7 +62,7 @@
   const tests = () => (staff ? testsStaff() : testsSide());
   function guide() {
     const G = L.guide, g = G[guideI] || { title: "", blocks: [] };
-    let h = '<div class="widgets"><nav class="card col" style="flex:1 1 240px;padding:10px;gap:2px" aria-label="Статьи справочника">' + G.map((x, i) => '<button type="button" data-g="' + i + '" aria-current="' + (i === guideI) + '" style="text-align:left;border:0;border-radius:10px;padding:10px;min-height:44px;cursor:pointer;background:' + (i === guideI ? "#F3F5F9" : "transparent") + ';font-size:14px"><span class="head" style="font-size:12px;color:#0A7CD6;margin-right:8px">0' + (i + 1) + "</span>" + esc(x.title) + "</button>").join("") + "</nav>";
+    let h = '<div class="widgets"><nav class="card col" style="flex:1 1 240px;padding:10px;gap:2px" aria-label="Статьи справочника">' + G.map((x, i) => '<button type="button" data-g="' + i + '" aria-current="' + (i === guideI) + '" style="text-align:left;border:0;border-radius:10px;padding:10px;min-height:44px;cursor:pointer;background:' + (i === guideI ? "var(--soft)" : "transparent") + ';font-size:14px"><span class="head" style="font-size:12px;color:var(--accent);margin-right:8px">0' + (i + 1) + "</span>" + esc(x.title) + "</button>").join("") + "</nav>";
     h += '<article class="card col" style="flex:3 1 480px;gap:12px"><p class="eyebrow">0' + (guideI + 1) + '</p><h2 class="head" style="font-size:24px">' + esc(g.title) + "</h2>";
     let table = [];
     const flush = () => { if (table.length) { h += '<div class="scroll-x"><table class="tbl">' + table.filter((r) => !/^\|[-| ]+\|$/.test(r)).map((r, i) => "<tr>" + r.split(/(?<!\\)\|/).slice(1, -1).map((c) => (i ? "<td>" : "<th>") + md(c.trim().replace(/\\\|/g, "|")) + (i ? "</td>" : "</th>")).join("") + "</tr>").join("") + "</table></div>"; table = []; } };
@@ -70,7 +70,7 @@
     g.blocks.forEach((b) => {
       if (b.startsWith("|")) { table.push(b); return; }
       flush();
-      if (b.startsWith("> ")) h += '<p class="small" style="background:#EAF2FF;border-radius:12px;padding:12px;color:#1D4C9A">' + md(b.slice(2)) + "</p>";
+      if (b.startsWith("> ")) h += '<p class="small" style="background:var(--accent-soft);border-radius:12px;padding:12px;color:var(--under-fg)">' + md(b.slice(2)) + "</p>";
       else if (b.startsWith("- ")) h += '<p class="small" style="line-height:1.6;padding-left:14px">• ' + md(b.slice(2)) + "</p>";
       else h += '<p style="line-height:1.65">' + md(b) + "</p>";
     });
@@ -95,7 +95,7 @@
     all("[data-assign]").forEach((b) => b.addEventListener("click", () => {
       const c = L.courses.find((x) => x.id === +b.dataset.assign);
       const back = document.createElement("div"); back.className = "modal-back";
-      back.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-label="Назначить курс"><div class="row between"><h2 class="head" style="font-size:18px">Назначить «' + esc(c.title) + '»</h2><button type="button" class="icon-btn" data-x aria-label="Закрыть">×</button></div><p class="small muted">' + (c.audience === "mentor" ? "Наставнику" : "Стажёру") + " выбранных пар:</p>" + pairs.map((p) => '<label class="row nowrap small" style="gap:10px;min-height:40px"><input type="checkbox" value="' + p.id + '" style="width:20px;height:20px;accent-color:#0A7CD6"><b>' + esc(p.code) + "</b> · " + esc(p.st.label) + "</label>").join("") + '<button type="button" class="btn primary" data-ok>Назначить</button></div>';
+      back.innerHTML = '<div class="modal" role="dialog" aria-modal="true" aria-label="Назначить курс"><div class="row between"><h2 class="head" style="font-size:18px">Назначить «' + esc(c.title) + '»</h2><button type="button" class="icon-btn" data-x aria-label="Закрыть">×</button></div><p class="small muted">' + (c.audience === "mentor" ? "Наставнику" : "Стажёру") + " выбранных пар:</p>" + pairs.map((p) => '<label class="row nowrap small" style="gap:10px;min-height:40px"><input type="checkbox" value="' + p.id + '" style="width:20px;height:20px;accent-color:var(--accent)"><b>' + esc(p.code) + "</b> · " + esc(p.st.label) + "</label>").join("") + '<button type="button" class="btn primary" data-ok>Назначить</button></div>';
       document.body.appendChild(back);
       back.querySelector("[data-x]").onclick = () => back.remove();
       back.querySelector("[data-ok]").onclick = async () => { const ids = Array.from(back.querySelectorAll("input:checked")).map((i) => +i.value); const r = await api("POST", "/api/courses/" + c.id + "/assign", { pair_ids: ids, side: c.audience }); back.remove(); toast("Назначено: " + r.assigned); load(); };
