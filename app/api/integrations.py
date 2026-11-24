@@ -64,7 +64,9 @@ def sync(kind: str, user: User = Depends(require_role(*HR_ONLY)), db: Session = 
     if not cfg:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Сначала подключите форму.")
     try:
-        n = connectors.poll(db, user.program_id, kind, cfg, org=integrations.active_demo_org(db, _org(user)))
+        owner = integrations.config_owner(db, _org(user), kind)
+        prog = db.query(Program).filter(Program.organization_id == owner).order_by(Program.id).first()
+        n = connectors.poll(db, prog.id if prog else user.program_id, kind, cfg, org=owner)
     except Exception as e:  # noqa: BLE001 — ошибку внешнего сервиса показываем HR
         integrations.log(db, _org(user), kind, f"Ошибка загрузки: {str(e)[:140]}", ok=False)
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Форма не ответила: {str(e)[:140]}") from e

@@ -241,3 +241,62 @@ def test_mail_with_question_descriptions_and_footer() -> None:
     assert f["Насколько понятны задачи, которые вы получаете?"] == "9"
     assert f["Комментарий: что получается и что мешает?"] == ""
     assert not any("Где 1" in k for k in f)
+
+
+def test_form_answer_reaches_every_live_demo_copy(demo) -> None:  # noqa: F811
+    from datetime import datetime
+
+    from app.db.models import Organization
+    from app.services import sandbox
+    from app.services.forms import connectors
+
+    qs = [
+        "Насколько понятны задачи, которые вы получаете?",
+        "Можете ли вы выполнять задачи без помощи наставника?",
+        "Хватает ли вам времени и внимания наставника?",
+        "Комфортен ли для вас объём задач?",
+        "Получаете ли вы обратную связь по своей работе?",
+        "Насколько вам понятны ваши перспективы после стажировки?",
+    ]
+    fields = {"Ваш ID": "С-104"} | {q: "5" for q in qs}
+    with SessionLocal() as db:
+        tmpl = integrations.demo_template(db)
+        copies = [sandbox.build(db, use_llm=False) for _ in range(2)]
+        for o in copies:
+            o.sandbox_claimed_at = o.sandbox_seen_at = datetime.utcnow()
+        db.commit()
+        targets = integrations.demo_targets(db, tmpl)
+        assert targets[0] == tmpl and {o.id for o in copies} <= set(targets)
+        ev = connectors.deliver(db, tmpl, fields, "yandex")
+        assert ev["delivered"] == 3
+        for org in [tmpl] + [o.id for o in copies]:
+            n = (
+                db.query(Response)
+                .join(Participant)
+                .join(Program)
+                .filter(
+                    Program.organization_id == org,
+                    Participant.external_id == "С-104",
+                    Response.source == "yandex",
+                )
+                .count()
+            )
+            assert n == 1
+        assert db.get(Organization, copies[0].id).sandbox_token
+
+
+def test_yandex_webhook_only_mode(demo) -> None:  # noqa: F811
+    hr = login("hr@pulse.demo")
+    r = hr.post(
+        "/api/integrations/yandex", json={"token": "", "form_id": "", "org_id": ""}, headers=csrf_headers(hr)
+    ).json()
+    assert r["connected"] and "вебхук" in r["info"] and "token=" in r["webhook"]
+    secret = r["webhook"].split("token=")[1]
+    body = "Ваш ID: С-104" + chr(10) + "Комфортен ли для вас объём задач?: 6"
+    resp = hr.post(
+        f"/api/forms/yandex/webhook?token={secret}",
+        content=body.encode(),
+        headers={"content-type": "text/plain"},
+    )
+    assert resp.status_code == 400 and "Ответьте на все вопросы" in resp.json()["detail"]
+    assert hr.post("/api/forms/yandex/webhook?token=wrong", json={}).status_code == 403
