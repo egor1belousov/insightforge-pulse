@@ -1,6 +1,5 @@
 """Серверные страницы интерфейса (Jinja2). Данные страницы получают из API."""
 
-import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
@@ -12,6 +11,7 @@ from app.core.deps import current_user_optional, own_participant
 from app.core.settings import get_settings
 from app.db.models import User
 from app.db.session import get_db
+from app.services.sandbox import public_email
 
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
@@ -50,7 +50,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "2"
+ASSET_V = "6"
 
 
 def home_for(user: User) -> str:
@@ -87,8 +87,7 @@ def app_page(
     me = {
         "id": user.id,
         "name": user.name,
-        # в песочнице демо почта вида hr+токен@pulse.demo — показываем обычную
-        "email": re.sub(r"\+[a-z0-9]+@", "@", user.email),
+        "email": public_email(user.email),
         "role": user.role,
         "program_id": user.program_id,
         "role_label": ROLE_LABEL[user.role],

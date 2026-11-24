@@ -74,7 +74,7 @@ def user_out(db: Session, user: User) -> dict:
     part = db.query(Participant).filter(Participant.user_id == user.id).first()
     return {
         "id": user.id,
-        "email": user.email,
+        "email": sandbox.public_email(user.email),
         "name": user.name,
         "role": user.role,
         "program_id": user.program_id,

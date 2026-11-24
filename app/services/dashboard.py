@@ -29,13 +29,28 @@ from app.services.analytics.service import analytics_config, load_series, month_
 from app.services.llm.fallback import tone_label
 
 ST = {
-    "ok": {"label": "Согласны, растут", "bg": "#E9F6EE", "fg": "#1C6B3A", "dot": "#1F8F4E"},
-    "over": {"label": "Переоценивает себя", "bg": "#FFF4E5", "fg": "#8A4B00", "dot": "#C26F00"},
-    "under": {"label": "Недооценивает себя", "bg": "#EAF2FF", "fg": "#1D4C9A", "dot": "#2F6FDB"},
-    "both": {"label": "Оба тревожатся", "bg": "#FDECEC", "fg": "#962020", "dot": "#C93434"},
-    "words": {"label": "Слова ≠ цифры", "bg": "#F3F0FF", "fg": "#4B2E9A", "dot": "#6C4FD6"},
-    "neutral": {"label": "Сигналов нет", "bg": "#EEF0F4", "fg": "#3A4256", "dot": "#8A93A6"},
-    "new": {"label": "Новая пара · данных нет", "bg": "#EEF0F4", "fg": "#5B6478", "dot": "#B0B7C6"},
+    "ok": {"label": "Согласны, растут", "bg": "var(--ok-bg)", "fg": "var(--ok-fg)", "dot": "#1F8F4E"},
+    "over": {"label": "Переоценивает себя", "bg": "var(--over-bg)", "fg": "var(--over-fg)", "dot": "#C26F00"},
+    "under": {
+        "label": "Недооценивает себя",
+        "bg": "var(--under-bg)",
+        "fg": "var(--under-fg)",
+        "dot": "#2F6FDB",
+    },
+    "both": {"label": "Оба тревожатся", "bg": "var(--both-bg)", "fg": "var(--both-fg)", "dot": "#C93434"},
+    "words": {"label": "Слова ≠ цифры", "bg": "var(--words-bg)", "fg": "var(--words-fg)", "dot": "#6C4FD6"},
+    "neutral": {
+        "label": "Сигналов нет",
+        "bg": "var(--neutral-bg)",
+        "fg": "var(--neutral-fg)",
+        "dot": "#8A93A6",
+    },
+    "new": {
+        "label": "Новая пара · данных нет",
+        "bg": "var(--neutral-bg)",
+        "fg": "var(--muted)",
+        "dot": "#B0B7C6",
+    },
 }
 TYPE_UP = {
     "level": "УРОВЕНЬ",
@@ -323,14 +338,14 @@ def dashboard(
                 "label": "Пар в зоне внимания",
                 "value": f"{len(attn)} из {n}",
                 "note": "по четырём типам расхождения",
-                "color": "#C26F00" if attn else "#1C6B3A",
+                "color": "var(--over)" if attn else "var(--ok-fg)",
                 "help": "Пары, у которых сработал хотя бы один сигнал",
             },
             {
                 "label": "Средний индекс здоровья",
                 "value": str(round(sum(healths) / len(healths))) if healths else "—",
                 "note": "от 0 до 100, выше — лучше",
-                "color": "#0E1424",
+                "color": "var(--ink)",
                 "help": "100 минус штрафы; подробности в справочнике",
             },
             {
@@ -339,14 +354,14 @@ def dashboard(
                 "note": f"месяцем раньше {sum(prev) / len(prev):.2f}"
                 if prev
                 else "первый месяц — не с чем сравнить",
-                "color": "#0A7CD6",
+                "color": "var(--accent)",
                 "help": "Средняя разница оценок стажёра и наставника",
             },
             {
                 "label": f"Анкет за {month_name(program, m)}",
                 "value": f"{got}/{len(expected)}",
                 "note": ("ждём: " + ", ".join(pending)) if pending else "все получены",
-                "color": "#0E1424",
+                "color": "var(--ink)",
                 "help": "Сколько анкет пришло в этом месяце",
             },
         ],
@@ -465,10 +480,10 @@ def _chart_series(ps: PairSeries, side: str, topic: str, calibrated: bool) -> li
 
 def _flags(res: PairResult, ps: PairSeries, pair: Pair, period: int) -> tuple[list, list]:
     red, amb, grn, vio = (
-        ("#FDECEC", "#962020"),
-        ("#FFF4E5", "#8A4B00"),
-        ("#E9F6EE", "#1C6B3A"),
-        ("#F3F0FF", "#4B2E9A"),
+        ("var(--both-bg)", "var(--both-fg)"),
+        ("var(--over-bg)", "var(--over-fg)"),
+        ("var(--ok-bg)", "var(--ok-fg)"),
+        ("var(--words-bg)", "var(--words-fg)"),
     )
     fi, fm = [], []
     types = {s.type: s for s in res.signals}
@@ -587,7 +602,7 @@ def diagnosis(
             "value": value,
             "pct": round(frac * 100),
             "color": color,
-            "border": "#F0A3A3" if frac > 0.66 else "#E3E6EC",
+            "border": "#F0A3A3" if frac > 0.66 else "var(--line)",
             "text": text,
         }
 

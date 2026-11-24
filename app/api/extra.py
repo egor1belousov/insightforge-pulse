@@ -32,6 +32,7 @@ from app.services.dashboard import dashboard, periods_of
 from app.services.forms import connectors
 from app.services.forms.submit import active_questionnaire, current_period
 from app.services.llm import client, tasks
+from app.services.sandbox import public_email
 
 router = APIRouter(prefix="/api", tags=["разделы"])
 
@@ -148,7 +149,7 @@ def program_overview(user: User = Depends(require_role(*HR_ONLY)), db: Session =
                 "external_id": p.external_id,
                 "side": p.side,
                 "department": p.department,
-                "email": users[p.user_id].email if p.user_id in users else None,
+                "email": public_email(users[p.user_id].email) if p.user_id in users else None,
                 "joined": p.user_id is not None,
                 "survey": f"/survey/{make_survey_token(p.id)}",
             }
@@ -497,7 +498,7 @@ def get_settings_api(user: User = Depends(require_role(*HR_ONLY)), db: Session =
         "forms": connectors.status(),
         "demo": get_settings().demo_mode,
         "users": [
-            {"email": u.email, "name": u.name, "role": u.role}
+            {"email": public_email(u.email), "name": u.name, "role": u.role}
             for u in db.query(User).filter(
                 User.organization_id == prog.organization_id, User.role.in_(("hr", "lead"))
             )
