@@ -6,6 +6,7 @@
 import asyncio
 import json
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -143,9 +144,15 @@ def parse_mail_body(text: str) -> dict:
                 return flat
     fields: dict[str, Any] = {}
     last = None
+    text = re.split(r"Это письмо содержит ответы|Яндекс не несёт ответственности", text)[0]
     for raw in text.splitlines():
         line = raw.strip()
-        if not line:
+        if not line or line.lower() in ("нет ответа", "—", "-"):
+            continue
+        # пояснение к вопросу в кавычках, за ним ответ: «"Где 1 — …, а 10 — …": 9» — ответ относится к вопросу выше
+        desc = re.match(r'^["«].+["»]\s*:\s*(.*)$', line)
+        if desc and last is not None and not fields[last]:
+            fields[last] = desc.group(1).strip()
             continue
         if ":" in line:
             # «Вопрос?: ответ» — делим по вопросительному знаку, иначе по первому двоеточию
