@@ -127,8 +127,10 @@ def create(
     )
     db.add(p)
     db.flush()
-    if copy_from_current and src is not None:
-        copy_questionnaires(db, src, p)
+    if not (copy_from_current and src is not None and copy_questionnaires(db, src, p)):
+        from app.services.accounts import default_questionnaires
+
+        default_questionnaires(db, p)
     user.program_id = p.id
     db.commit()
     return p

@@ -141,10 +141,18 @@
   }
   const WIDGETS = { kpi: W_kpi, tasks: W_tasks, signals: W_signals, map: W_map, trend: W_trend, system: W_system, forms: W_forms, feed: W_feed, health: W_health };
 
-  // Новый поток без пар: вместо пустых виджетов — шаги запуска
-  function renderEmpty() {
-    const steps = [["01 / Люди", "Пригласите стажёров и наставников", "Ссылки-приглашения на почту или загрузка списка из Excel.", "/program?tab=people", "К участникам"], ["02 / Пары", "Соберите пары", "ИИ подскажет наставника по подразделению и нагрузке.", "/program", "К парам"], ["03 / Анкета", "Проверьте анкету", "Анкеты скопированы из прошлого потока — их можно поправить в конструкторе.", "/forms?tab=build", "К конструктору"], ["04 / Каналы", "Настройте рассылку", "Почта, Telegram и автонапоминания — один раз на весь поток.", "/forms", "К рассылкам"]];
-    box.innerHTML = '<section class="hero"><div class="sphere orb" data-orb="dots" data-size="560" aria-hidden="true"></div><p class="tagline">Новый поток</p><h1>Поток готов к запуску</h1><p class="sub">Пар пока нет — сигналы появятся после первой анкеты. Четыре шага, чтобы начать.</p></section><div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + steps.map(([k, t, d, u, b]) => '<a class="card col start-step" href="' + u + '" style="text-decoration:none;color:inherit"><p class="eyebrow">' + esc(k) + '</p><b style="font-size:17px">' + esc(t) + '</b><p class="small muted" style="line-height:1.5">' + esc(d) + '</p><span class="btn ghost small" style="margin-top:auto;align-self:flex-start;padding-left:0">' + esc(b) + " →</span></a>").join("") + "</div>";
+  // Новый поток без пар: шаги запуска с реальными счётчиками
+  async function renderEmpty() {
+    let O = { people: [], unpaired: [], free_mentors: [] }, M = { rows: [], got: 0 };
+    try { [O, M] = await Promise.all([api("GET", "/api/program/overview"), isHr ? api("GET", "/api/forms/mailing") : Promise.resolve(M)]); } catch (e) { /* пустой поток */ }
+    const people = O.people || [], joined = people.filter((p) => p.joined).length, interns = people.filter((p) => p.side === "intern").length;
+    const steps = [
+      ["01 / Люди", people.length ? "Участников: " + people.length : "Пригласите стажёров и наставников", people.length ? "Вошли в систему: " + joined + " из " + people.length + ". Стажёров " + interns + ", наставников " + (people.length - interns) + "." : "Ссылки-приглашения на почту или загрузка списка из Excel.", "/program?tab=people", "К участникам", people.length > 0],
+      ["02 / Пары", (O.unpaired || []).length ? "Без пары: " + O.unpaired.length : "Соберите пары", "ИИ подскажет наставника по подразделению и нагрузке." + ((O.free_mentors || []).length ? " Свободных наставников: " + O.free_mentors.length + "." : ""), "/program", "К парам", false],
+      ["03 / Анкета", M.got ? "Получено анкет: " + M.got : "Проверьте анкету", M.got ? "Ответы уже видны в «Анкеты → Рассылки». Сигналы появятся, когда люди будут в парах." : "Анкеты скопированы из прошлого потока — их можно поправить в конструкторе.", M.got ? "/forms" : "/forms?tab=build", M.got ? "К ответам" : "К конструктору", M.got > 0],
+      ["04 / Каналы", "Настройте рассылку", "Почта, Telegram и автонапоминания — один раз на весь поток.", "/forms", "К рассылкам", false],
+    ];
+    box.innerHTML = '<section class="hero"><div class="sphere orb" data-orb="dots" data-size="560" aria-hidden="true"></div><p class="tagline">Новый поток</p><h1>' + (people.length ? "Поток набирается" : "Поток готов к запуску") + '</h1><p class="sub">' + (people.length ? "Людей: " + people.length + ", пар пока нет — сигналы появятся, когда стажёр и наставник окажутся в паре и заполнят анкету." : "Пар пока нет — сигналы появятся после первой анкеты. Четыре шага, чтобы начать.") + '</p></section><div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">' + steps.map(([k, t, d, u, b, done]) => '<a class="card col start-step' + (done ? " done" : "") + '" href="' + u + '" style="text-decoration:none;color:inherit"><p class="eyebrow">' + esc(k) + (done ? " ✓" : "") + '</p><b style="font-size:17px">' + esc(t) + '</b><p class="small muted" style="line-height:1.5">' + esc(d) + '</p><span class="btn ghost small" style="margin-top:auto;align-self:flex-start;padding-left:0">' + esc(b) + " →</span></a>").join("") + "</div>";
   }
 
   function render() {

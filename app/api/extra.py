@@ -176,26 +176,24 @@ def mailing(user: User = Depends(require_role(*HR_ONLY)), db: Session = Depends(
     got = {r.participant_id: r for r in db.query(Resp).filter(Resp.period == period)}
     reminded = set(_setting(db, prog.organization_id, f"reminded_{period}", []))
     rows = []
-    pairs = db.query(Pair).filter(Pair.program_id == prog.id).order_by(Pair.code).all()
-    for pr in pairs:
-        for p in (pr.intern, pr.mentor):
-            qn = active_questionnaire(db, prog.id, p.side)
-            n = len([q for q in qn.questions if q.qtype != "text"]) if qn else 0
-            r = got.get(p.id)
-            rows.append(
-                {
-                    "external_id": p.external_id,
-                    "side": p.side,
-                    "pair": pr.code,
-                    "questions": n,
-                    "status": "заполнено"
-                    if r
-                    else ("напомнили" if p.external_id in reminded else "не заполнено"),
-                    "source": r.source if r else None,
-                    "response_id": r.id if r else None,
-                    "link": f"/survey/{make_survey_token(p.id)}",
-                }
-            )
+    for p, code in reminders.roster(db, prog):
+        qn = active_questionnaire(db, prog.id, p.side)
+        n = len([q for q in qn.questions if q.qtype != "text"]) if qn else 0
+        r = got.get(p.id)
+        rows.append(
+            {
+                "external_id": p.external_id,
+                "side": p.side,
+                "pair": code,
+                "questions": n,
+                "status": "заполнено"
+                if r
+                else ("напомнили" if p.external_id in reminded else "не заполнено"),
+                "source": r.source if r else None,
+                "response_id": r.id if r else None,
+                "link": f"/survey/{make_survey_token(p.id)}",
+            }
+        )
     return {
         "period": period,
         "month": month_name(prog, period),
