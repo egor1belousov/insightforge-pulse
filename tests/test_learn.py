@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from app.db.session import SessionLocal
@@ -62,7 +64,7 @@ def test_hr_creates_course_generates_and_publishes_test(full) -> None:
     t = hr.post("/api/tests/generate", json={"course_id": c["id"], "n": 3}, headers=h).json()
     assert t["status"] == "draft" and t["questions"] and t["generated_by"] == "rules"
     q = t["questions"][0]
-    assert q["options"][q["correct"]] in text
+    assert q["source"] in text and all(0 <= k < len(q["options"]) for k in q["correct"])
     hr.put(f"/api/tests/{t['id']}/questions/{q['id']}", json={"enabled": False}, headers=h)
     assert hr.post(f"/api/tests/{t['id']}/publish", headers=h).json()["assigned"] == 1
     assert login("lead@pulse.demo").post(
@@ -95,3 +97,101 @@ def test_assistant_respects_roles(full) -> None:
         "/api/assistant", json={"message": "Что с парой П-02?"}, headers=csrf_headers(intern)
     ).json()
     assert "С-102" not in r["answer"] and "Н-202" not in r["answer"]
+
+
+def test_constructor_sections_tags_and_reader_progress(full) -> None:
+    hr = login("hr@pulse.demo")
+    h = csrf_headers(hr)
+    sections = [
+        {
+            "kind": "text",
+            "title": "Перед выездом",
+            "body": "Проверьте комплект инструмента и заряд рефлектометра.",
+        },
+        {"kind": "check", "title": "Чек-лист", "body": "Каска\nПерчатки\nСхема разводки"},
+        {"kind": "tip", "title": "", "body": "Нет схемы — работу не начинайте, позвоните наставнику."},
+    ]
+    c = hr.post(
+        "/api/courses",
+        data={
+            "title": "Выезд на объект",
+            "kind": "Чек-лист",
+            "topic": "",
+            "audience": "all",
+            "tags": "Оборудование, Охрана труда",
+            "sections": json.dumps(sections),
+        },
+        headers=h,
+    ).json()
+    assert c["tags"] == ["Оборудование", "Охрана труда"] and c["topic"] is None and len(c["sections"]) == 3
+    c = hr.put(
+        f"/api/courses/{c['id']}", json=c | {"tags": ["Оборудование"], "status": "draft"}, headers=h
+    ).json()
+    assert c["status"] == "draft" and c["tags"] == ["Оборудование"]
+    assert hr.put(f"/api/courses/{c['id']}", json=c | {"sections": []}, headers=h).status_code == 400
+    pairs = hr.get("/api/dashboard").json()["pairs"]
+    pid = next(p["id"] for p in pairs if p["code"] == "П-04")
+    hr.post(f"/api/courses/{c['id']}/assign", json={"pair_ids": [pid]}, headers=h)
+    for who in ("intern@pulse.demo", "mentor@pulse.demo"):
+        side = login(who)
+        assert any(x["id"] == c["id"] for x in side.get("/api/learn").json()["courses"])
+    intern = login("intern@pulse.demo")
+    r = intern.post(
+        f"/api/courses/{c['id']}/progress", json={"section": 1}, headers=csrf_headers(intern)
+    ).json()
+    assert r["progress"] == 33 and r["done"] == [1]
+    assert intern.get(f"/api/courses/{c['id']}").json()["done"] == [1]
+
+
+def test_split_sections_from_plain_text() -> None:
+    from app.services.learning import split_sections
+
+    secs = split_sections(
+        "Подготовка\nСнимите покрытие. Очистите волокно.\nИнструмент\n- Скалыватель\n- Рефлектометр"
+    )
+    assert [s["title"] for s in secs if s["title"]] == ["Подготовка", "Инструмент"]
+    assert next(s for s in secs if s["kind"] == "list")["body"] == "Скалыватель\nРефлектометр"
+
+
+def test_question_types_editing_and_retake(full) -> None:
+    hr = login("hr@pulse.demo")
+    h = csrf_headers(hr)
+    t = next(x for x in hr.get("/api/learn").json()["tests"])
+    t = hr.post(
+        f"/api/tests/{t['id']}/questions",
+        json={
+            "qtype": "multi",
+            "text": "Что проверяют перед выездом?",
+            "options": ["Инструмент", "Схему", "Погоду", "Обед"],
+            "correct": [0, 1],
+        },
+        headers=h,
+    ).json()
+    multi = t["questions"][-1]
+    assert multi["qtype"] == "multi" and multi["correct"] == [0, 1]
+    t = hr.put(
+        f"/api/tests/{t['id']}/questions/{multi['id']}",
+        json={"qtype": "truefalse", "text": "Без схемы работу начинают", "correct": [1]},
+        headers=h,
+    ).json()
+    tf = t["questions"][-1]
+    assert tf["options"] == ["Верно", "Неверно"] and tf["correct"] == [1]
+    assert (
+        hr.put(f"/api/tests/{t['id']}/questions/{tf['id']}", json={"correct": [9]}, headers=h).status_code
+        == 400
+    )
+    hr.put(f"/api/tests/{t['id']}", json={"pass_score": 0.75}, headers=h)
+    intern = login("intern@pulse.demo")
+    it = intern.get("/api/learn").json()["tests"][0]
+    assert "correct" not in it["questions"][0] and it["pass_score"] == 0.75
+    wrong = {q["id"]: 0 for q in it["questions"]}
+    r = intern.post(
+        f"/api/tests/{it['id']}/answer", json={"answers": wrong}, headers=csrf_headers(intern)
+    ).json()
+    assert not r["passed"] and r["attempts"] == 1
+    right = {q["id"]: (1 if q["qtype"] == "truefalse" else 0) for q in it["questions"]}
+    right.update({int(k): v["correct"] for k, v in r["result"].items()})
+    r = intern.post(
+        f"/api/tests/{it['id']}/answer", json={"answers": right}, headers=csrf_headers(intern)
+    ).json()
+    assert r["passed"] and r["score"] == 1 and r["attempts"] == 2
