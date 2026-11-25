@@ -53,6 +53,29 @@
   });
   es.addEventListener("data_imported", (e) => { window.dispatchEvent(new CustomEvent("pulse:data-imported", { detail: JSON.parse(e.data) })); });
   es.addEventListener("talk_request", (e) => { const d = JSON.parse(e.data); Pulse.toast(d.who + " просит разговор с HR · тема: " + d.topic); loadNotif(); });
+  // Через шлюз, который копит поток целиком, события не доходят: тогда опрашиваем уведомления.
+  let live = false;
+  es.addEventListener("open", () => { live = true; });
+  setTimeout(() => {
+    if (live) return;
+    es.close();
+    let seen = null;
+    const poll = async () => {
+      try {
+        const n = await Pulse.api("GET", "/api/notifications");
+        const top = n.items[0];
+        if (seen !== null && top && top.id > seen) {
+          Pulse.toast(top.title);
+          loadNotif();
+          window.dispatchEvent(new CustomEvent("pulse:pair-updated", { detail: {} }));
+        }
+        if (top) seen = Math.max(seen || 0, top.id);
+        else if (seen === null) seen = 0;
+      } catch (e) { /* следующий опрос повторит */ }
+    };
+    poll();
+    setInterval(() => { if (!document.hidden) poll(); }, 20000);
+  }, 8000);
 })();
 
 // Отчёт для руководства и палитра команд (Ctrl+K).
