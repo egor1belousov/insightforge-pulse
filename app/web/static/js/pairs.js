@@ -45,7 +45,7 @@
     const fxp = Math.min(X(ms.length), G.r);
     let h = '<div class="chart-wrap"><svg viewBox="0 0 ' + G.w + " " + G.h + '" role="img" aria-label="Оценки стажёра и наставника по месяцам с прогнозом" style="width:100%;height:auto;display:block">';
     h += '<rect x="' + X(ms.length - 1) + '" y="' + G.t + '" width="' + (fxp - X(ms.length - 1)) + '" height="' + G.ph + '" fill="#F3F5F9" rx="6"></rect>';
-    if (ch.swap) { const sx = X(ix(ch.swap)) - step / 2; h += '<line x1="' + sx + '" x2="' + sx + '" y1="' + G.t + '" y2="' + base + '" stroke="#C26F00" stroke-width="2" stroke-dasharray="3 3"></line><text x="' + (sx - 4) + '" y="' + (G.t + 12) + '" font-size="' + G.fs + '" fill="#C26F00" text-anchor="end">' + (ph ? "смена" : "смена наставника") + "</text>"; }
+    if (ch.swap) { const sx = X(ix(ch.swap)) - step / 2; h += '<line x1="' + sx + '" x2="' + sx + '" y1="' + G.t + '" y2="' + base + '" stroke="#A65E00" stroke-width="2" stroke-dasharray="3 3"></line><text x="' + (sx - 4) + '" y="' + (G.t + 12) + '" font-size="' + G.fs + '" fill="#A65E00" text-anchor="end">' + (ph ? "смена" : "смена наставника") + "</text>"; }
     const lab = (v) => (scale === "cal" ? (v === 0.5 ? "норма" : (v > 0.5 ? "+" : "−") + Math.abs(v - 0.5).toFixed(ph ? 1 : 2)) : v.toFixed(ph ? 1 : 2));
     G.ticks.forEach((v) => { h += '<line x1="' + G.l + '" x2="' + G.r + '" y1="' + Y(v) + '" y2="' + Y(v) + '" stroke="#E6E9EF"></line><text x="' + (G.l - 6) + '" y="' + (Y(v) + 4) + '" font-size="' + G.fs + '" fill="#5B6478" text-anchor="end">' + lab(v) + "</text>"; });
     if (ip.length && mp.length) h += '<polygon points="' + ip.concat(mp.slice().reverse()).map((p) => p.join(",")).join(" ") + '" fill="' + fill + '"></polygon>';

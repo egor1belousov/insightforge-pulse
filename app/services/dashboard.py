@@ -29,8 +29,8 @@ from app.services.analytics.service import analytics_config, load_series, month_
 from app.services.llm.fallback import tone_label
 
 ST = {
-    "ok": {"label": "Согласны, растут", "bg": "var(--ok-bg)", "fg": "var(--ok-fg)", "dot": "#1F8F4E"},
-    "over": {"label": "Переоценивает себя", "bg": "var(--over-bg)", "fg": "var(--over-fg)", "dot": "#C26F00"},
+    "ok": {"label": "Согласны, растут", "bg": "var(--ok-bg)", "fg": "var(--ok-fg)", "dot": "#1A7D44"},
+    "over": {"label": "Переоценивает себя", "bg": "var(--over-bg)", "fg": "var(--over-fg)", "dot": "#A65E00"},
     "under": {
         "label": "Недооценивает себя",
         "bg": "var(--under-bg)",
@@ -596,7 +596,7 @@ def diagnosis(
 
     def dc(name: str, value: str, frac: float, text: str) -> dict:
         frac = max(0.0, min(1.0, frac))
-        color = "#C93434" if frac > 0.66 else "#C26F00" if frac > 0.33 else "#1F8F4E"
+        color = "#C93434" if frac > 0.66 else "#A65E00" if frac > 0.33 else "#1A7D44"
         return {
             "name": name,
             "value": value,

@@ -13,7 +13,7 @@
 {% endblock %}
 {% block scripts %}
 <script src="/static/js/survey.js?v={{ asset_v }}"></script>
-<script>
+<script nonce="{{ csp_nonce }}">
 (async function () {
   const token = {{ token | tojson }}, box = document.getElementById("sv-box");
   try {

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Страница не найдена{% endblock %}
+{% block body %}
+<main class="auth">
+  <div class="form" style="margin:auto;max-width:480px;text-align:left">
+    <p class="eyebrow">Ошибка 404</p>
+    <h1>Такой страницы нет</h1>
+    <p class="muted">Возможно, ссылка устарела или в адресе опечатка.</p>
+    <div class="row" style="gap:10px"><a class="btn primary" href="/">На главную</a><a class="btn" href="/login">Войти</a></div>
+  </div>
+</main>
+{% endblock %}

@@ -14,7 +14,15 @@
       headers["content-type"] = "application/json";
       payload = JSON.stringify(body);
     }
-    const res = await fetch(url, { method, headers, body: payload, credentials: "same-origin", ...(opts || {}) });
+    let res;
+    try {
+      res = await fetch(url, { method, headers, body: payload, credentials: "same-origin", ...(opts || {}) });
+    } catch (e) {
+      if (e && e.name === "AbortError") throw e;
+      const text = navigator.onLine === false ? "Нет подключения к интернету. Проверьте сеть и повторите." : "Нет связи с сервером. Повторите попытку через минуту.";
+      toast(text, null, "bad");
+      throw new Error(text);
+    }
     if (res.status === 401 && !url.startsWith("/api/auth/")) {
       location.href = "/login?next=" + encodeURIComponent(location.pathname);
       throw new Error("Нужно войти в систему.");
@@ -31,7 +39,7 @@
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   let toastTimer = null;
-  function toast(text, undo) {
+  function toast(text, undo, kind) {
     let el = document.getElementById("toast");
     if (!el) {
       el = document.createElement("div");
@@ -40,7 +48,7 @@
       el.setAttribute("role", "status");
       document.body.appendChild(el);
     }
-    el.innerHTML = '<span class="dot" style="background:#22C55E"></span><span class="grow">' + esc(text) + "</span>" +
+    el.innerHTML = '<span class="dot" style="background:' + (kind === "bad" ? "#EF4444" : "#22C55E") + '"></span><span class="grow">' + esc(text) + "</span>" +
       (undo ? '<button type="button" class="undo">Отменить</button>' : "") +
       '<button type="button" class="x" aria-label="Закрыть уведомление">×</button>';
     el.hidden = false;
@@ -65,13 +73,49 @@
     const o = opt || {}, total = parts.reduce((a, p) => a + p.n, 0), ok = parts[0].n, pct = total ? Math.round((ok / total) * 100) : 0;
     let h = '<div class="prog' + (o.big ? " big" : "") + '">';
     h += '<div class="prog-top"><span class="prog-num">' + (o.title ? '<span class="prog-title">' + esc(o.title) + "</span>" : ok + '<span class="prog-of"> / ' + total + "</span>") + '</span><span class="prog-pct">' + pct + "%</span></div>";
-    h += '<div class="prog-track" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + ok + '">';
+    h += '<div class="prog-track" role="progressbar" aria-label="' + esc(o.title || (parts[0].label + " — " + ok + " из " + total)) + '" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + ok + '">';
     parts.forEach((p) => { for (let i = 0; i < p.n; i++) h += '<span class="seg-' + p.cls + '" style="animation-delay:' + Math.min(i * 40, 600) + 'ms"></span>'; });
     h += '</div><div class="prog-legend">' + parts.filter((p) => p.n).map((p) => '<span><i class="seg-' + p.cls + '"></i>' + esc(p.label) + " · " + p.n + "</span>").join("") + "</div></div>";
     return h;
   }
 
   window.Pulse = { api, esc, toast, conf, cookie, plural, progress };
+  window.addEventListener("offline", () => toast("Нет подключения к интернету. Изменения не сохранятся, пока сеть не вернётся.", null, "bad"));
+  window.addEventListener("online", () => toast("Подключение восстановлено."));
+
+  // ---------- модальные окна ----------
+  // Фокус переходит в окно, Tab не уходит под затемнение, после закрытия фокус возвращается на кнопку.
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const openers = [];
+  const topModal = () => { const all = document.querySelectorAll(".modal-back"); return all[all.length - 1] || null; };
+  const focusables = (root) => Array.from(root.querySelectorAll(FOCUSABLE)).filter((el) => el.offsetParent !== null || el === document.activeElement);
+  function enterModal(back) {
+    openers.push(document.activeElement);
+    requestAnimationFrame(() => {
+      if (!back.isConnected || back.contains(document.activeElement)) return;
+      const target = back.querySelector("[autofocus], input:not([type=hidden]), select, textarea") || focusables(back)[0];
+      if (target) target.focus();
+      else { const box = back.querySelector('[role="dialog"]') || back; box.setAttribute("tabindex", "-1"); box.focus(); }
+    });
+  }
+  new MutationObserver((ms) => ms.forEach((m) => {
+    m.addedNodes.forEach((n) => { if (n.nodeType === 1 && n.classList.contains("modal-back")) enterModal(n); });
+    m.removedNodes.forEach((n) => {
+      if (n.nodeType !== 1 || !n.classList.contains("modal-back")) return;
+      const back = openers.pop();
+      if (back && back.isConnected && back.focus) back.focus();
+    });
+  })).observe(document.body, { childList: true });
+  document.addEventListener("keydown", (e) => {
+    const back = topModal();
+    if (e.key !== "Tab" || !back) return;
+    const els = focusables(back);
+    if (!els.length) { e.preventDefault(); return; }
+    const first = els[0], last = els[els.length - 1];
+    if (!back.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   // ---------- тема ----------
   function setTheme(t) {

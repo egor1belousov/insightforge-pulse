@@ -23,7 +23,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 (async function () {
   const token = {{ token | tojson }}, err = document.getElementById("err"), info = document.getElementById("inv-info");
   const ROLE = { lead: "Руководитель программы", mentor: "Наставник", intern: "Стажёр" };

@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, new_token, verify_password
@@ -23,6 +24,9 @@ DEFAULT_TOPICS: list[tuple[str, str]] = [
 ]
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD = 10
+MAX_TEXT = 200  # длина строковых столбцов имени, почты, организации и потока
+MAX_PASSWORD = 128
+EMAIL_TAKEN = "Эта почта уже зарегистрирована. Войдите или восстановите доступ у HR."
 
 
 class AccountError(ValueError):
@@ -41,7 +45,7 @@ class InviteInfo:
 
 def _check_email(email: str) -> str:
     email = email.strip().lower()
-    if not EMAIL_RE.match(email):
+    if len(email) > MAX_TEXT or not EMAIL_RE.match(email):
         raise AccountError("Введите рабочую почту, например hr@pulse.demo.")
     return email
 
@@ -49,6 +53,24 @@ def _check_email(email: str) -> str:
 def _check_password(password: str) -> None:
     if len(password) < MIN_PASSWORD:
         raise AccountError(f"Пароль должен быть не короче {MIN_PASSWORD} символов.")
+    if len(password) > MAX_PASSWORD:
+        raise AccountError(f"Пароль должен быть не длиннее {MAX_PASSWORD} символов.")
+
+
+def _check_length(**fields: str) -> None:
+    labels = {"name": "Имя", "organization": "Название организации", "program": "Название программы"}
+    for key, value in fields.items():
+        if len(value.strip()) > MAX_TEXT:
+            raise AccountError(f"{labels[key]}: не больше {MAX_TEXT} символов.")
+
+
+def _commit_user(db: Session) -> None:
+    """Сохраняет нового пользователя; одновременная регистрация той же почты — понятная ошибка."""
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        raise AccountError(EMAIL_TAKEN) from e
 
 
 def ensure_topics(db: Session, organization_id: int) -> None:
@@ -79,8 +101,9 @@ def register_hr(
     _check_password(password)
     if not name.strip() or not organization.strip() or not program.strip():
         raise AccountError("Заполните имя, организацию и название программы.")
+    _check_length(name=name, organization=organization, program=program)
     if db.query(User).filter(User.email == email).first():
-        raise AccountError("Эта почта уже зарегистрирована. Войдите или восстановите доступ у HR.")
+        raise AccountError(EMAIL_TAKEN)
     org = Organization(name=organization.strip())
     db.add(org)
     db.flush()
@@ -98,7 +121,7 @@ def register_hr(
         program_id=prog.id,
     )
     db.add(user)
-    db.commit()
+    _commit_user(db)
     return user
 
 
@@ -125,7 +148,7 @@ def create_invite(db: Session, *, by: User, email: str, role: str, external_id: 
         raise AccountError("Роль приглашения: HR, руководитель, наставник или стажёр.")
     if db.query(User).filter(User.email == email).first():
         raise AccountError("Пользователь с этой почтой уже есть.")
-    ext = (external_id or "").strip() or None
+    ext = (external_id or "").strip()[:50] or None
     if role in ("hr", "lead"):
         ext = None
     inv = Invite(
@@ -174,6 +197,7 @@ def accept_invite(db: Session, token: str, *, name: str, password: str) -> User:
     _check_password(password)
     if not name.strip():
         raise AccountError("Введите имя.")
+    _check_length(name=name)
     if db.query(User).filter(User.email == inv.email).first():
         raise AccountError("Пользователь с этой почтой уже есть.")
     user = User(
@@ -185,7 +209,11 @@ def accept_invite(db: Session, token: str, *, name: str, password: str) -> User:
         program_id=inv.program_id,
     )
     db.add(user)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as e:
+        db.rollback()
+        raise AccountError("Пользователь с этой почтой уже есть.") from e
     if inv.role in ("mentor", "intern") and inv.program_id:
         ext = inv.external_id or ("С-" if inv.role == "intern" else "Н-") + str(user.id + 100)
         part = (
@@ -198,5 +226,5 @@ def accept_invite(db: Session, token: str, *, name: str, password: str) -> User:
             db.add(part)
         part.user_id = user.id
     inv.used_at = datetime.now()
-    db.commit()
+    _commit_user(db)
     return user
