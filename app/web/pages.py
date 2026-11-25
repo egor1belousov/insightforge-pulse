@@ -61,7 +61,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "16"
+ASSET_V = "18"
 
 
 def home_for(user: User) -> str:
@@ -69,9 +69,14 @@ def home_for(user: User) -> str:
     return "/dashboard" if user.role in ("hr", "lead") else "/me"
 
 
-def render(request: Request, name: str, **ctx) -> HTMLResponse:
-    """Рендер шаблона с общим контекстом."""
-    return templates.TemplateResponse(request, name, {"asset_v": ASSET_V, **ctx})
+def render(request: Request, name: str, status_code: int = 200, **ctx) -> HTMLResponse:
+    """Рендер шаблона с общим контекстом: версия статики, nonce для встроенных скриптов, адрес сайта."""
+    base = {
+        "asset_v": ASSET_V,
+        "csp_nonce": getattr(request.state, "csp_nonce", ""),
+        "public_url": get_settings().public_url.rstrip("/"),
+    }
+    return templates.TemplateResponse(request, name, {**base, **ctx}, status_code=status_code)
 
 
 def app_page(

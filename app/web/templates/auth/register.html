@@ -25,7 +25,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 document.getElementById("reg-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.target, err = document.getElementById("err"); err.hidden = true;

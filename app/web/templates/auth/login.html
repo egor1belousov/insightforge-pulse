@@ -32,7 +32,7 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script>
+<script nonce="{{ csp_nonce }}">
 (function () {
   const f = document.getElementById("login-form"), err = document.getElementById("err");
   const demoPwd = {{ demo_password | tojson }};

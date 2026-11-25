@@ -18,3 +18,4 @@ qa-report/screenshots/pages/
 qa-report/*.json
 !qa-report/a11y-details.json
 qa-report/run.log
+qa-report/run-after.log

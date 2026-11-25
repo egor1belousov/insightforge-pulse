@@ -9,11 +9,19 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.deps import HR_ONLY, SIDE_ROLES, STAFF, current_user, own_participant, require_role
+from app.core.deps import (
+    HR_ONLY,
+    SIDE_ROLES,
+    STAFF,
+    current_user,
+    current_user_optional,
+    own_participant,
+    require_role,
+)
 from app.core.security import make_survey_token, read_survey_token
 from app.core.settings import get_settings
 from app.db.models import Notification, Participant, Program, Response, TalkRequest, User
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.services import integrations
 from app.services.events.bus import bus
 from app.services.forms import connectors
@@ -231,8 +239,12 @@ def demo_response(user: User = Depends(require_role(*HR_ONLY)), db: Session = De
 
 
 @router.get("/events")
-async def events(request: Request, user: User = Depends(require_role(*STAFF))) -> StreamingResponse:
-    program_id = user.program_id
+async def events(request: Request) -> StreamingResponse:
+    # Сессия БД — только на проверку входа: поток живёт, пока открыта вкладка,
+    # и не должен держать соединение из пула.
+    with SessionLocal() as db:
+        user = require_role(*STAFF)(current_user(request, current_user_optional(request, db)))
+        program_id = user.program_id
     q = bus.subscribe(program_id)
 
     async def gen():

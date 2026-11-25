@@ -4,7 +4,7 @@
   const { api, esc, toast } = window.Pulse;
   const box = document.getElementById("page");
   let tab = new URLSearchParams(location.search).get("tab") || "pairs", O = null, D = null, picking = null, invites = [];
-  const OUT = [["stay", "В штате", "#1F8F4E"], ["no", "Не оставлен", "#5B6478"], ["left", "Ушёл сам", "#C93434"]];
+  const OUT = [["stay", "В штате", "#1A7D44"], ["no", "Не оставлен", "#5B6478"], ["left", "Ушёл сам", "#C93434"]];
 
   async function load() { [O, D, invites] = await Promise.all([api("GET", "/api/program/overview"), api("GET", "/api/dashboard"), api("GET", "/api/auth/invites")]); render(); }
 

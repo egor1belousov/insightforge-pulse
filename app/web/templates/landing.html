@@ -70,7 +70,7 @@
   <footer><div class="in"><div class="orb st-orb of" data-orb="mesh" data-size="520" aria-hidden="true"></div><div style="position:relative"><p class="head" style="font-size:clamp(22px,2.6vw,34px);color:#fff">Наставнику — время, HR — ясность</p><p class="small" style="margin-top:10px;color:#9AA6C6">Команда InsightForge · кейс-чемпионат «Код города» · данные анонимны, ИИ работает локально</p></div><a class="white-btn" href="{% if demo %}/demo/hr{% else %}/login{% endif %}" style="font-size:15px;min-height:48px;position:relative">{% if demo %}Открыть демо{% else %}Войти{% endif %} <span aria-hidden="true">→</span></a></div></footer>
 </div>
 {% endblock %}
-{% block scripts %}{% if real_user %}<script>
+{% block scripts %}{% if real_user %}<script nonce="{{ csp_nonce }}">
   // Переход в демо из рабочего аккаунта — только с подтверждением
   document.querySelectorAll("[data-demo-switch]").forEach((a) => a.addEventListener("click", (e) => {
     if (!confirm("Вы вошли как {{ real_user.name|e }}. Демо откроется в отдельной демо-копии, и вы выйдете из своего аккаунта. Продолжить?")) e.preventDefault();

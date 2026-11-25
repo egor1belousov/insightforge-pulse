@@ -29,9 +29,9 @@
   --line: #E3E6EC; --line-2: #D5DAE3; --line-3: #C9CFDB; --soft: #EEF0F4; --soft-2: #EEF1F6; --soft-3: #F7F8FB;
   --card: #FFFFFF; --card-glass: rgba(255,255,255,0.72); --topbar: rgba(255,255,255,0.86);
   --dark: #070A14; --black: #05070E; --on-primary: #FFFFFF; --primary: #05070E; --primary-hover: #1A2032;
-  --accent: #0A7CD6; --accent-2: #4F6BDA; --accent-soft: #EAF2FF; --accent-ink: #0A5BA8;
-  --ok: #1F8F4E; --ok-bg: #E9F6EE; --ok-fg: #1C6B3A;
-  --over: #C26F00; --over-bg: #FFF4E5; --over-fg: #8A4B00;
+  --accent: #0A6FC2; --accent-2: #4F6BDA; --accent-soft: #EAF2FF; --accent-ink: #0A5BA8;
+  --ok: #1A7D44; --ok-bg: #E9F6EE; --ok-fg: #1C6B3A;
+  --over: #A65E00; --over-bg: #FFF4E5; --over-fg: #8A4B00;
   --under: #2F6FDB; --under-bg: #EAF2FF; --under-fg: #1D4C9A;
   --both: #C93434; --both-bg: #FDECEC; --both-fg: #962020;
   --words: #6C4FD6; --words-bg: #F3F0FF; --words-fg: #4B2E9A;
@@ -71,6 +71,11 @@
 [data-theme="dark"] svg [stroke="#E6E9EF"] { stroke: var(--line-2); }
 [data-theme="dark"] svg [stroke="#0E1424"] { stroke: var(--ink); }
 [data-theme="dark"] svg [stroke="#0A7CD6"] { stroke: var(--accent); }
+/* статусные цвета, пришедшие из данных текстом: в тёмной теме — светлые варианты */
+[data-theme="dark"] [style*="color:#A65E00"]:not([style*="background"]) { color: var(--over) !important; }
+[data-theme="dark"] [style*="color:#1A7D44"]:not([style*="background"]) { color: var(--ok) !important; }
+[data-theme="dark"] svg [stroke="#A65E00"] { stroke: var(--over); }
+[data-theme="dark"] svg [stroke="#1A7D44"] { stroke: var(--ok); }
 [data-theme="dark"] .card svg [stroke="#fff"], [data-theme="dark"] .card svg [stroke="#FFFFFF"] { stroke: var(--card); }
 
 * { box-sizing: border-box; }
@@ -252,7 +257,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .landing .top nav a:hover { opacity: 1; }
 .landing .sep { width: 1px; height: 18px; background: var(--glass-line); }
 .landing .brand-name { color: var(--stage-muted); font-size: 14px; }
-.landing .mgts { width: 30px; height: 30px; background: #fff; display: flex; align-items: flex-end; justify-content: center; font-size: 7px; font-weight: 700; color: #0A7CD6; padding-bottom: 3px; box-shadow: 0 0 0 1px var(--glass-line); }
+.landing .mgts { width: 30px; height: 30px; background: #fff; display: flex; align-items: flex-end; justify-content: center; font-size: 7px; font-weight: 700; color: #0A6FC2; padding-bottom: 3px; box-shadow: 0 0 0 1px var(--glass-line); }
 .landing .if { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, #6F8FE8, #3552B8); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-weight: 700; font-size: 11px; }
 .landing .white-btn { background: var(--stage-ink); color: var(--stage-bg); border: 0; border-radius: var(--r-pill); padding: 12px 22px; font-weight: 600; font-size: 14px; min-height: 44px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: transform .25s var(--ease); }
 .landing footer .white-btn { background: #fff; color: #05070E; }
