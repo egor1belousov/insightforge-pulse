@@ -61,7 +61,7 @@ DEMO_ACCOUNTS = [
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "18"
+ASSET_V = "19"
 
 
 def home_for(user: User) -> str:
