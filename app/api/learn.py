@@ -13,7 +13,7 @@ from app.db.models import Assignment, Course, Pair, Participant, Program, Test, 
 from app.db.session import get_db
 from app.services import assistant, learning
 
-TOPIC_CODES = ("tasks", "auto", "support", "load", "feedback", "growth")
+TOPIC_CODES = ("tasks", "auto", "support", "load", "feedback", "growth", "engage", "overall")
 
 router = APIRouter(prefix="/api", tags=["обучение"])
 

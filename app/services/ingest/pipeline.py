@@ -105,6 +105,7 @@ def _questions_to_schema(qn: ParsedQuestionnaire | None, side: str) -> dict:
                 "labels": q.labels,
                 "options": q.options,
                 "code": q.code,
+                "alias": q.alias,
                 "inverse": q.inverse,
                 "topic": None,
                 "topic_conf": 0.0,
@@ -224,6 +225,14 @@ def _infer_scale(vals: list) -> tuple[float, float, list[str]]:
     return lo, hi, []
 
 
+def _name_similarity(header: str, q: dict) -> float:
+    """Похожесть заголовка колонки на вопрос: по формулировке и по названию показателя из Word."""
+    s = similarity(header, q["text"])
+    if q.get("alias"):
+        s = max(s, 1.0 if norm(header) == norm(q["alias"]) else similarity(header, q["alias"]))
+    return s
+
+
 def _match_columns(cols: list[ColumnGuess], df: pd.DataFrame, qs: list[dict]) -> list[dict]:
     """Сопоставляет колонки оценок и комментариев вопросам анкеты. Дополняет анкету, если вопроса нет."""
     score_qs = [q for q in qs if q["qtype"] != "text"]
@@ -238,7 +247,7 @@ def _match_columns(cols: list[ColumnGuess], df: pd.DataFrame, qs: list[dict]) ->
             if code and q.get("code") == code:
                 cand.append((1.0, c.name, q["key"]))
             else:
-                cand.append((similarity(c.name, q["text"]), c.name, q["key"]))
+                cand.append((_name_similarity(c.name, q), c.name, q["key"]))
     cand.sort(key=lambda x: -x[0])
     assigned: dict[str, tuple[str, float]] = {}
     for s, cname, qkey in cand:
@@ -301,11 +310,15 @@ def _match_columns(cols: list[ColumnGuess], df: pd.DataFrame, qs: list[dict]) ->
                 }
                 qs.append(q)
                 text_qs.append(q)
-            best = max(text_qs, key=lambda q: similarity(c.name, q["text"]))
+            # свободный текстовый вопрос предпочтительнее занятого: два столбца комментариев не сливаются
+            free = [q for q in text_qs if q["key"] not in used] or text_qs
+            best = max(free, key=lambda q: _name_similarity(c.name, q))
             code = question_code(c.name)
             if code:
                 best = next((q for q in text_qs if q.get("code") == code), best)
             c.question, c.match_conf = best["key"], 0.9
+            if any(q.get("alias") for q in text_qs):
+                used.add(best["key"])
     return qs
 
 
@@ -315,7 +328,7 @@ def _topics_and_mirrors(qsets: dict[str, list[dict]], resolvers: Resolvers) -> N
             if q["qtype"] == "text":
                 q["topic"], q["topic_conf"] = None, 1.0
                 continue
-            topic, conf = guess_topic(q["text"])
+            topic, conf = guess_topic(f"{q.get('alias') or ''} {q['text']}")
             if conf < 0.7 and resolvers.topic:
                 res = resolvers.topic(q["text"], [])
                 if res:

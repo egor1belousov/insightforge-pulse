@@ -17,10 +17,12 @@ log = logging.getLogger("pulse.accounts")
 DEFAULT_TOPICS: list[tuple[str, str]] = [
     ("tasks", "Понимание задач"),
     ("auto", "Самостоятельность"),
-    ("support", "Поддержка"),
-    ("load", "Нагрузка"),
-    ("feedback", "Обратная связь"),
-    ("growth", "Перспективы"),
+    ("support", "Взаимодействие с командой"),
+    ("load", "Нагрузка и сроки"),
+    ("feedback", "Поддержка и обратная связь"),
+    ("growth", "Профессиональное развитие"),
+    ("engage", "Интерес и вовлечённость"),
+    ("overall", "Общая оценка"),
 ]
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 MIN_PASSWORD = 10

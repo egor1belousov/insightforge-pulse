@@ -5,7 +5,7 @@
   const box = document.getElementById("page"), role = document.getElementById("main").dataset.role;
   const isHr = role === "hr", staff = isHr || role === "lead";
   const TABS = isHr ? [["courses", "Материалы"], ["tests", "Тесты"], ["guide", "Справочник"]] : staff ? [["guide", "Справочник"], ["courses", "Материалы"]] : [["courses", role === "mentor" ? "Памятки и материалы" : "Мои материалы"], ["tests", "Тесты"]];
-  const TOP = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Поддержка", load: "Нагрузка", feedback: "Обратная связь", growth: "Перспективы" };
+  const TOP = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Взаимодействие с командой", load: "Нагрузка и сроки", feedback: "Поддержка и обратная связь", growth: "Профессиональное развитие", engage: "Интерес и вовлечённость", overall: "Общая оценка" };
   const KINDS = ["Курс", "Памятка", "Чек-лист", "Материал"];
   const AUD = { intern: "Стажёрам", mentor: "Наставникам", all: "Всем" };
   const SEC = { text: "Текст", list: "Список", tip: "Совет", check: "Чек-лист" };

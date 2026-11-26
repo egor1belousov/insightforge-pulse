@@ -67,3 +67,33 @@ def test_v6_fixes_applied() -> None:
     assert sum(1 for r in records if r.ext_id == "С-102" and r.period == 4) == 1
     incomplete = [r for r in records if not r.complete]
     assert [(r.ext_id, r.period) for r in incomplete] == [("Н-204", 5)]
+
+
+MGTS = Path(__file__).parent.parent / "data" / "mgts"
+
+
+def test_mgts_case_recognized_without_questions() -> None:
+    files = sorted(MGTS.iterdir())
+    schema = analyze(files)
+    assert schema["asks"] == []
+    assert {t["file"]: t["side"] for t in schema["tables"]} == {
+        "Ответы стажеров.xlsx": "intern",
+        "Ответы наствников.xlsx": "mentor",
+    }
+    assert sorted((p["intern"], p["mentor"]) for p in schema["pairs"]) == [
+        (f"СТ-00{i}", f"Н-00{i}") for i in range(1, 6)
+    ]
+    qs = schema["questionnaires"]
+    kinds = {s: [q["qtype"] for q in qs[s]["questions"]] for s in qs}
+    assert kinds == {"intern": ["scale"] * 7 + ["text"] * 2, "mentor": ["scale"] * 6 + ["text"] * 2}
+    topics = {s: [q["topic"] for q in qs[s]["questions"] if q["qtype"] != "text"] for s in qs}
+    assert topics["intern"] == ["tasks", "feedback", "load", "engage", "growth", "support", "overall"]
+    assert topics["mentor"] == ["tasks", "overall", "auto", "load", "engage", "support"]
+    assert sum(1 for q in qs["intern"]["questions"] if q["mirror"]) == 5
+
+    records = build_records(files, schema)
+    assert len(records) == 60 and all(r.complete for r in records)
+    r = next(r for r in records if (r.side, r.ext_id, r.period) == ("intern", "СТ-004", 4))
+    load = next(k for k, q in ((q["key"], q) for q in qs["intern"]["questions"]) if q["topic"] == "load")
+    assert r.scores[load] == ("2", 0.25)
+    assert len(r.texts) == 2 and r.department == "HR-блок"

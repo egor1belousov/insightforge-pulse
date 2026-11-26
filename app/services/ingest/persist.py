@@ -46,7 +46,7 @@ def save_questionnaires(db: Session, program: Program, schema: dict) -> dict[str
                 topic_id=topic.id if topic else None,
                 inverse=bool(q.get("inverse")),
                 order=i,
-                column_key=q["key"],
+                column_key=q.get("alias") or q["key"],  # название столбца в данных, если оно известно
             )
             db.add(row)
             out[side][q["key"]] = row

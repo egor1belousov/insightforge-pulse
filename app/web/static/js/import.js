@@ -5,7 +5,7 @@
   const $ = (id) => document.getElementById(id);
   const ROLE_NAMES = { id: "ID участника", link: "ID другой стороны", pair: "ID пары", period: "Месяц анкеты", score: "Оценка", comment: "Комментарий", department: "Подразделение", email: "Почта", timestamp: "Отметка времени", skip: "Не учитывать" };
   const SIDE = { intern: "Стажёры", mentor: "Наставники" };
-  const TOPICS = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Поддержка", load: "Нагрузка", feedback: "Обратная связь", growth: "Перспективы" };
+  const TOPICS = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Взаимодействие с командой", load: "Нагрузка и сроки", feedback: "Поддержка и обратная связь", growth: "Профессиональное развитие", engage: "Интерес и вовлечённость", overall: "Общая оценка" };
   let files = [], job = null, saving = null;
 
   function setStep(n) { document.querySelectorAll("#steps .step").forEach((s) => s.classList.toggle("on", Number(s.dataset.step) <= n)); }
