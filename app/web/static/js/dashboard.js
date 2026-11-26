@@ -84,18 +84,21 @@
   }
   function W_trend() {
     // Матрица «пары × контрольные периоды»: цвет — светофор, число — индекс здоровья, подсказка — сигналы.
-    const ms = D.months, cols = "minmax(64px,88px) repeat(" + ms.length + ",minmax(40px,1fr))";
+    const ms = D.months, cols = "minmax(40px,88px) repeat(" + ms.length + ",minmax(34px,1fr))";
+    const rows = "24px repeat(" + D.pairs.length + ",34px)", cur = ms.findIndex((m) => m.p === D.period);
     let h = head("trend", "Динамика по контрольным периодам");
-    h += '<div class="scroll-x"><div style="display:grid;grid-template-columns:' + cols + ';gap:4px;min-width:360px;font-size:12px"><span></span>';
-    h += ms.map((m) => '<span style="text-align:center;color:' + (m.p === D.period ? "var(--accent)" : "var(--muted)") + ';font-weight:' + (m.p === D.period ? 700 : 500) + '">' + esc(m.short) + "</span>").join("");
+    h += '<div class="scroll-x"><div style="position:relative;display:grid;grid-template-columns:' + cols + ";grid-template-rows:" + rows + ';gap:4px;min-width:290px;font-size:12px">';
+    // подложка выбранного месяца: абсолютный элемент сетки не занимает ячейку при раскладке
+    if (cur >= 0) h += '<span aria-hidden="true" style="position:absolute;grid-column:' + (cur + 2) + ';grid-row:1 / -1;inset:-4px -3px;border-radius:12px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent)"></span>';
+    h += "<span></span>" + ms.map((m, i) => '<span style="position:relative;align-self:center;justify-self:center;padding:2px 8px;border-radius:999px;' + (i === cur ? "background:var(--accent);color:#fff;font-weight:700" : "color:var(--muted);font-weight:500") + '">' + esc(m.short) + "</span>").join("");
     D.pairs.forEach((p) => {
       const by = {}; (p.timeline || []).forEach((t) => (by[t.p] = t));
-      h += '<a href="' + pairLink(p.id) + '" class="small" style="align-self:center;font-weight:600;color:inherit;text-decoration:none;white-space:nowrap" title="' + esc(p.intern + " · " + p.mentor) + '">' + esc(p.code) + ' <span class="xs muted">' + esc(p.intern) + "</span></a>";
+      h += '<a href="' + pairLink(p.id) + '" class="small" style="position:relative;align-self:center;font-weight:600;color:inherit;text-decoration:none;white-space:nowrap" title="' + esc(p.intern + " · " + p.mentor) + '">' + esc(p.code) + ' <span class="xs muted trend-id">' + esc(p.intern) + "</span></a>";
       ms.forEach((m) => {
         const t = by[m.p];
-        if (!t) { h += '<span style="height:34px;border-radius:8px;background:var(--soft);opacity:.5"></span>'; return; }
+        if (!t) { h += '<span style="position:relative;border-radius:8px;background:var(--soft);opacity:.5"></span>'; return; }
         const tip = m.full + ": " + ({ red: "критичный сигнал", amber: "зона внимания", green: "сигналов нет" }[t.zone]) + (t.labels.length ? " — " + t.labels.join(", ") : "") + ". Индекс " + t.index;
-        h += '<a href="' + pairLink(p.id) + '" title="' + esc(tip) + '" aria-label="' + esc(p.code + ", " + tip) + '" style="height:34px;border-radius:8px;background:' + t.dot + ';color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;text-decoration:none' + (m.p === D.period ? ";outline:2px solid var(--ink);outline-offset:1px" : "") + '">' + t.index + "</a>";
+        h += '<a href="' + pairLink(p.id) + '" title="' + esc(tip) + '" aria-label="' + esc(p.code + ", " + tip) + '" style="position:relative;border-radius:8px;background:' + t.dot + ';color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;text-decoration:none">' + t.index + "</a>";
       });
     });
     h += '</div></div><div class="row xs" style="gap:14px;margin-top:10px;color:var(--muted-2)">' + [["#C93434", "критичный сигнал"], ["#E38B00", "зона внимания"], ["#1A7D44", "сигналов нет"]].map((x) => '<span class="row nowrap" style="gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:' + x[0] + '"></span>' + x[1] + "</span>").join("") + '<span>число — индекс здоровья, наведите для сигналов</span></div>';
