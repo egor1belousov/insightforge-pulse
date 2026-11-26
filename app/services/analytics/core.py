@@ -14,17 +14,26 @@ SIDE_RU_DAT = {"intern": "стажёру", "mentor": "наставнику"}
 TOPIC_RU = {
     "tasks": "понимание задач",
     "auto": "самостоятельность",
-    "support": "поддержка",
-    "load": "нагрузка",
-    "feedback": "обратная связь",
-    "growth": "перспективы",
+    "support": "взаимодействие с командой",
+    "load": "нагрузка и сроки",
+    "feedback": "поддержка и обратная связь",
+    "growth": "профессиональное развитие",
+    "engage": "интерес и вовлечённость",
+    "overall": "общая оценка",
 }
+# Светофор: критичный сигнал, зона внимания, норма.
+CRITICAL_TYPES = ("low", "gap", "drop")
+ZONE_RU = {"red": "Критичный сигнал", "amber": "Зона внимания", "green": "Положительная оценка"}
 SIGNAL_RU = {
     "level": "Уровень",
     "growth": "Растущий разрыв",
     "lag": "Запаздывание",
     "words": "Слова ≠ цифры",
     "decline": "Общее падение",
+    "low": "Критичная оценка",
+    "gap": "Расхождение по показателю",
+    "drop": "Резкое снижение",
+    "repeat": "Повторяющаяся проблема",
     "missing": "Нет анкеты",
     "program": "Сигнал программы",
 }
@@ -34,6 +43,10 @@ ACTION_RU = {
     "lag": "Показать расхождение той стороне, что не видит",
     "words": "Личная беседа",
     "decline": "Решение по нагрузке и обучению",
+    "low": "Разговор по проблемному показателю",
+    "gap": "Встреча втроём: сверить взгляды",
+    "drop": "Выяснить, что изменилось за месяц",
+    "repeat": "Разобрать повторяющуюся проблему",
     "missing": "Напомнить об анкете",
     "program": "Проверить программу",
 }
@@ -64,6 +77,7 @@ class PairSeries:
     values: dict[str, dict[str, dict[int, float]]]
     comments: list[Comment] = field(default_factory=list)
     start_period: int = 1
+    raw: dict[str, dict[str, dict[int, str]]] = field(default_factory=dict)  # подпись балла: «2 из 5»
 
     def topics(self) -> list[str]:
         """Темы, по которым есть оценки обеих сторон."""
@@ -116,6 +130,127 @@ class PairResult:
     mentor: float | None
     topic_delta: dict[str, float]
     missing: list[str]
+    zone: str = "green"
+
+
+def _score_text(ps: PairSeries, side: str, topic: str, period: int) -> str:
+    raw = ps.raw.get(side, {}).get(topic, {}).get(period)
+    return raw or f"{ps.values[side][topic][period]:.2f}"
+
+
+def indicator_signals(
+    ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"месяц {p}"
+) -> list[Signal]:
+    """Сигналы по отдельным показателям: критичная оценка, расхождение, резкое снижение, повтор в комментариях.
+
+    Работают и на темах, которые есть только у одной стороны (например, «Поддержка наставника» у стажёра).
+    """
+    out: list[Signal] = []
+    prev = max((p for p in ps.periods if p < period), default=None)
+    order = list(TOPIC_RU)
+
+    def ordered(side: str) -> list[str]:
+        return sorted(ps.values.get(side, {}), key=lambda t: order.index(t) if t in order else len(order))
+
+    # Критичная оценка: показатель на нижних баллах шкалы (1–2 из 5).
+    for side in SIDES:
+        lows = [
+            (t, ps.values[side][t][period])
+            for t in ordered(side)
+            if period in ps.values[side][t] and ps.values[side][t][period] <= cfg["low_critical"] + 1e-9
+        ]
+        if lows:
+            items = ", ".join(f"«{TOPIC_RU.get(t, t)}» — {_score_text(ps, side, t, period)}" for t, _ in lows)
+            out.append(
+                Signal(
+                    "low",
+                    lows[0][0],
+                    round(1 - min(v for _, v in lows), 2),
+                    f"{SIDE_RU[side]} ставит низкие оценки: {items}.",
+                    "Нижние баллы шкалы — это уже проблема, а не колебание. Поговорить по этим показателям в ближайшие дни.",
+                    {"side": side, "topics": {t: round(v, 3) for t, v in lows}},
+                )
+            )
+
+    # Расхождение по показателю: стажёр и наставник видят одну тему на 2+ балла по-разному.
+    gaps = []
+    for t in ps.topics():
+        i, m = ps.values["intern"][t].get(period), ps.values["mentor"][t].get(period)
+        if i is not None and m is not None and abs(i - m) >= cfg["gap_threshold"] - 1e-9:
+            gaps.append((t, i - m))
+    if gaps:
+        t, d = max(gaps, key=lambda x: abs(x[1]))
+        who = "Стажёр оценивает выше, чем наставник" if d > 0 else "Стажёр оценивает ниже, чем наставник"
+        items = "; ".join(
+            f"«{TOPIC_RU.get(t, t)}»: стажёр {_score_text(ps, 'intern', t, period)}, "
+            f"наставник {_score_text(ps, 'mentor', t, period)}"
+            for t, _ in gaps
+        )
+        out.append(
+            Signal(
+                "gap",
+                t,
+                round(abs(d), 3),
+                f"{who}. {items}.",
+                "Стороны по-разному видят одну и ту же ситуацию. Встреча втроём: каждый называет, что видит, на примерах.",
+                {"topics": {t: round(d, 3) for t, d in gaps}, "sign": 1 if d > 0 else -1},
+            )
+        )
+
+    # Резкое снижение: показатель упал на 2+ балла за месяц.
+    if prev is not None:
+        for side in SIDES:
+            drops = []
+            for t in ordered(side):
+                ser = ps.values[side][t]
+                if period in ser and prev in ser and ser[prev] - ser[period] >= cfg["sharp_drop"] - 1e-9:
+                    drops.append((t, ser[prev] - ser[period]))
+            if drops:
+                items = ", ".join(
+                    f"«{TOPIC_RU.get(t, t)}» {_score_text(ps, side, t, prev)} → {_score_text(ps, side, t, period)}"
+                    for t, _ in drops
+                )
+                out.append(
+                    Signal(
+                        "drop",
+                        drops[0][0],
+                        round(max(d for _, d in drops), 3),
+                        f"{SIDE_RU[side]}: резкое снижение за месяц — {items}.",
+                        "Что-то изменилось именно в этом месяце: новый проект, нагрузка, смена задач. Выяснить у обеих сторон.",
+                        {"side": side, "topics": {t: round(d, 3) for t, d in drops}, "from": prev},
+                    )
+                )
+
+    # Повторяющаяся проблема: тревожные комментарии стороны два контрольных периода подряд.
+    if prev is not None:
+        for side in SIDES:
+            now = [
+                c
+                for c in ps.comments
+                if c.side == side and c.period == period and c.anxiety >= cfg["repeat_anxiety"]
+            ]
+            was = [
+                c
+                for c in ps.comments
+                if c.side == side and c.period == prev and c.anxiety >= cfg["repeat_anxiety"]
+            ]
+            if now and was:
+                c_now = max(now, key=lambda c: c.anxiety)
+                c_was = max(was, key=lambda c: c.anxiety)
+                common = [t for t in c_now.topics if any(t in c.topics for c in was)]
+                topic = common[0] if common else (c_now.topics or [None])[0]
+                out.append(
+                    Signal(
+                        "repeat",
+                        topic,
+                        round(c_now.anxiety, 2),
+                        f"{SIDE_RU[side]} второй месяц подряд пишет о сложностях: "
+                        f"{month_name(prev)} — «{c_was.quote or c_was.text}», {month_name(period)} — «{c_now.quote or c_now.text}».",
+                        "Проблема не ушла сама. Разобрать её отдельно и договориться о конкретном шаге.",
+                        {"side": side, "quotes": [c_was.quote or c_was.text, c_now.quote or c_now.text]},
+                    )
+                )
+    return out
 
 
 def personal_norm(series: dict[int, float], periods: list[int]) -> float | None:
@@ -348,7 +483,9 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
         b = ps.overall(s, known[-1]) if known else None  # при пропуске анкеты — последнее известное значение
         drops[s] = (a - b) if a is not None and b is not None else 0.0
     worst_drop = max(0.0, *drops.values())
-    if min(drops.values()) >= cfg["lag_drop"] and (delta is None or abs(delta) < cfg["level_threshold"]):
+    if min(drops.values()) >= cfg["lag_drop"] - 1e-9 and (
+        delta is None or abs(delta) < cfg["level_threshold"]
+    ):
         signals.append(
             Signal(
                 "decline",
@@ -359,6 +496,8 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
                 {"drop_intern": round(drops["intern"], 3), "drop_mentor": round(drops["mentor"], 3)},
             )
         )
+
+    signals += indicator_signals(ps, period, cfg, month_name)
 
     if missing:
         signals.append(
@@ -390,6 +529,12 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
         "words": words_contra * cfg["w_words"],
         "lag": lag_months * cfg["w_lag"],
         "missing": cfg["w_missing"] if missing else 0.0,
+        "critical": sum(
+            cfg["w_critical"] * len(s.facts.get("topics", {}) or [1])
+            for s in signals
+            if s.type in CRITICAL_TYPES
+        ),
+        "repeat": cfg["w_repeat"] * sum(1 for s in signals if s.type == "repeat"),
     }
     pen = {k: round(v, 1) for k, v in pen.items()}
     index = int(round(max(cfg["index_floor"], 100 - sum(pen.values()))))
@@ -407,10 +552,17 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
 
     real = [s for s in signals if s.type not in ("missing",)]
     types = {s.type for s in real}
+    gap = next((s for s in real if s.type == "gap"), None)
     if "words" in types:
         state = "words"
     elif "decline" in types:
         state = "both"
+    elif gap and not types & {"level", "growth", "lag"}:
+        state = "over" if gap.facts["sign"] > 0 else "under"
+    elif types & {"low", "drop"} and not types & {"level", "growth", "lag"}:
+        state = "alert"
+    elif types == {"repeat"}:
+        state = "watch"
     elif types & {"level", "growth", "lag"}:
         d = delta if delta is not None else 0.0
         if lag_side and abs(d) < 0.05:
@@ -418,6 +570,13 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
         state = "over" if d > 0 else "under"
     else:
         state = "ok"
+
+    if types & set(CRITICAL_TYPES) or index < cfg["alert_health"]:
+        zone = "red"
+    elif types:
+        zone = "amber"
+    else:
+        zone = "green"
 
     return PairResult(
         pair_id=ps.pair_id,
@@ -438,6 +597,7 @@ def evaluate(ps: PairSeries, period: int, cfg: dict, month_name=lambda p: f"ме
         mentor=None if mentor is None else round(mentor, 3),
         topic_delta={k: round(v, 3) for k, v in topic_delta.items()},
         missing=missing,
+        zone=zone,
     )
 
 

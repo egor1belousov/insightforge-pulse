@@ -8,13 +8,16 @@ from tests.test_live_chain import demo, login  # noqa: F401
 def test_dashboard_story_and_roles(demo) -> None:  # noqa: F811
     hr = login("hr@pulse.demo")
     d = hr.get("/api/dashboard").json()
-    assert d["headline"] == "4 пары из 5 требуют внимания"
-    assert {a["pair"] for a in d["alerts"]} == {"П-02", "П-03", "П-04", "П-05"}
-    assert d["program"]["box"] and "4 пар из 5" in d["program"]["box"]["title"]
-    assert all(p["i"] is not None and p["m"] is not None for p in d["pairs"])
+    assert d["headline"] == "Сигналов нет — пары в норме"
+    assert [h["pair"] for h in d["history"]][:3] == ["П-05", "П-03", "П-04"]
+    assert "внимание требовалось 4 парам из 6" in d["sub"]
+    assert d["forms"]["pending"] == ["СТ-006", "Н-006"]
+    assert all(p["i"] is not None and p["m"] is not None for p in d["pairs"] if p["code"] != "П-06")
     past = hr.get("/api/dashboard?period=2").json()
-    assert past["period"] == 2 and len(past["alerts"]) < len(d["alerts"])
-    one = hr.get("/api/dashboard?dept=Монтаж").json()
+    assert past["period"] == 2 and {a["pair"] for a in past["alerts"]} == {"П-01", "П-03", "П-05"}
+    assert past["zones"] == {"red": 2, "amber": 1, "green": 2}
+    assert past["alerts"][0]["zone"] == "red"
+    one = hr.get("/api/dashboard?dept=HR-блок").json()
     assert [p["code"] for p in one["pairs"]] == ["П-04"]
     lead = login("lead@pulse.demo")
     assert lead.get("/api/dashboard").json()["tasks"] == []
@@ -34,16 +37,19 @@ def test_layout_is_saved_per_user(demo) -> None:  # noqa: F811
 
 def test_pair_card_and_action_lifecycle(demo) -> None:  # noqa: F811
     hr = login("hr@pulse.demo")
-    pid = next(p["id"] for p in hr.get("/api/dashboard").json()["pairs"] if p["code"] == "П-02")
+    pid = next(p["id"] for p in hr.get("/api/dashboard").json()["pairs"] if p["code"] == "П-05")
     c = hr.get(f"/api/pairs/{pid}/diagnosis").json()
-    assert c["health"] < 50 and [d["name"] for d in c["decomp"]] == [
+    assert [t["zone"] for t in c["timeline"]] == ["red", "red", "red", "green", "green", "green"]
+    assert "2 из 5" in c["timeline"][0]["signals"][0]["description"]
+    assert c["summary"].startswith("Сейчас сигналов нет") and "июнь–август" in c["summary"]
+    assert [d["name"] for d in c["decomp"]] == [
         "Уровень",
         "Тренд",
         "Запаздывание",
         "Слова ≠ цифры",
     ]
-    assert c["recommended"] and c["contrib"]
-    cal = hr.get(f"/api/pairs/{pid}/diagnosis?scale=cal&topic=auto").json()
+    assert c["contrib"]
+    cal = hr.get(f"/api/pairs/{pid}/diagnosis?scale=cal&topic=tasks").json()
     assert cal["chart"]["intern"][0][1] != c["chart"]["intern"][0][1]
     h = csrf_headers(hr)
     aid = hr.post(
@@ -68,8 +74,19 @@ def test_pair_card_and_action_lifecycle(demo) -> None:  # noqa: F811
         lead.post(f"/api/pairs/{pid}/notes", json={"text": "x"}, headers=csrf_headers(lead)).status_code
         == 403
     )
-    sid = next(s["id"] for s in c["signals"] if s["id"])
+    p4 = next(p["id"] for p in hr.get("/api/dashboard?period=4").json()["pairs"] if p["code"] == "П-04")
+    c4 = hr.get(f"/api/pairs/{p4}/diagnosis").json()
+    assert c4["recommended"] or c4["timeline"][3]["zone"] == "red"
+    sid = next(s.id for s in _signals_of(p4))
     assert hr.post(f"/api/signals/{sid}/verdict", json={"verdict": "confirmed"}, headers=h).status_code == 200
+
+
+def _signals_of(pair_id: int) -> list:
+    from app.db.models import Signal
+    from app.db.session import SessionLocal
+
+    with SessionLocal() as db:
+        return db.query(Signal).filter(Signal.pair_id == pair_id).all()
 
 
 def test_public_pages_render() -> None:

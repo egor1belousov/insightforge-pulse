@@ -14,6 +14,10 @@ SCALE_RE = re.compile(r"(?:шкал\w*|scale|от|from)?\s*(\d{1,2})\s*(?:[-–�
 EDGE_RE = re.compile(r"(\d{1,2})\s*[-–—=:]\s*([а-яёa-z][а-яёa-z ]{2,30})", re.IGNORECASE)
 TEXT_WORDS = ("свободн", "текст", "коммент", "открыт", "своими словами")
 CHOICE_SPLIT = re.compile(r"\s*[/;|]\s*")
+OPEN_WORDS = ("открыт", "коммент", "свободн")
+# Таблицы без вопросов: описание служебных полей и расшифровка баллов шкалы.
+SERVICE_HEADER_WORDS = ("назначение", "описание поля")
+RUBRIC_RE = re.compile(r"^\d{1,2}\s*балл", re.IGNORECASE)
 
 
 @dataclass
@@ -29,6 +33,7 @@ class ParsedQuestion:
     code: str | None = None
     section: str = ""
     inverse: bool = False
+    alias: str | None = None
 
 
 @dataclass
@@ -117,6 +122,8 @@ def parse_docx(path: Path) -> list[ParsedQuestionnaire]:
     result: list[ParsedQuestionnaire] = []
     cur: ParsedQuestionnaire | None = None
     section = ""
+    context = ""  # последний абзац-пояснение: «Открытые вопросы», «Шкала от 1 до 5»
+    rubric: dict[str, tuple[str, str]] = {}  # показатель → (описание нижнего балла, верхнего)
     last_q: ParsedQuestion | None = None
 
     def ensure() -> ParsedQuestionnaire:
@@ -147,12 +154,34 @@ def parse_docx(path: Path) -> list[ParsedQuestionnaire]:
                 SCALE_RE.search(text) or any(w in text.lower() for w in TEXT_WORDS) or "/" in text
             ):
                 _apply_answer_spec(last_q, text)
+            else:
+                context = text
         else:
             rows = [[c.text.strip() for c in r.cells] for r in block.rows]
             if not rows:
                 continue
             header = [h.lower() for h in rows[0]]
-            q_col = next((i for i, h in enumerate(header) if "вопрос" in h or "question" in h), None)
+            rubric_cols = [i for i, h in enumerate(header) if RUBRIC_RE.match(h)]
+            if len(rubric_cols) >= 2:
+                for r in rows[1:]:
+                    if r and r[0] and max(rubric_cols) < len(r):
+                        rubric[r[0].strip().lower()] = (r[rubric_cols[0]], r[rubric_cols[-1]])
+                continue
+            if any(w in h for h in header for w in SERVICE_HEADER_WORDS):
+                continue
+            edges = EDGE_RE.findall(context)
+            q_col = next(
+                (i for i, h in enumerate(header) if "вопрос" in h or "утвержд" in h or "question" in h), None
+            )
+            name_col = next(
+                (
+                    i
+                    for i, h in enumerate(header)
+                    if i != q_col and ("название" in h or "показател" in h or "столб" in h or "поле" in h)
+                ),
+                None,
+            )
+            is_open = any(w in context.lower() for w in OPEN_WORDS)
             spec_col = next(
                 (i for i, h in enumerate(header) if "тип" in h or "ответ" in h or "шкал" in h or "type" in h),
                 None,
@@ -171,11 +200,20 @@ def parse_docx(path: Path) -> list[ParsedQuestionnaire]:
                 q = _new_question(text, section)
                 if prefix and question_code(prefix):
                     q.code = question_code(prefix)
+                if name_col is not None and name_col < len(r) and r[name_col]:
+                    q.alias = r[name_col]
                 if spec_col is not None and spec_col < len(r):
                     _apply_answer_spec(q, r[spec_col])
+                elif is_open:
+                    q.qtype = "text"
+                if q.qtype == "scale" and not q.labels and len(edges) >= 2:
+                    q.labels = [edges[0][1].strip(" ,.;"), edges[-1][1].strip(" ,.;")]
                 ensure().questions.append(q)
 
     for qn in result:
+        for q in qn.questions:
+            if q.alias and q.alias.strip().lower() in rubric and not q.labels:
+                q.labels = list(rubric[q.alias.strip().lower()])
         hi, hm = side_hint(qn.title)
         if hi != hm:
             qn.side, qn.side_conf = ("intern" if hi else "mentor"), 0.95

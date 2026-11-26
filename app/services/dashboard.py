@@ -18,6 +18,7 @@ from app.db.models import (
 )
 from app.services.analytics.core import (
     SIDES,
+    SIGNAL_RU,
     TOPIC_RU,
     PairResult,
     PairSeries,
@@ -30,15 +31,32 @@ from app.services.llm.fallback import tone_label
 
 ST = {
     "ok": {"label": "Согласны, растут", "bg": "var(--ok-bg)", "fg": "var(--ok-fg)", "dot": "#1A7D44"},
-    "over": {"label": "Переоценивает себя", "bg": "var(--over-bg)", "fg": "var(--over-fg)", "dot": "#A65E00"},
+    "over": {
+        "label": "Стажёр оценивает выше",
+        "bg": "var(--over-bg)",
+        "fg": "var(--over-fg)",
+        "dot": "#A65E00",
+    },
     "under": {
-        "label": "Недооценивает себя",
+        "label": "Стажёр оценивает ниже",
         "bg": "var(--under-bg)",
         "fg": "var(--under-fg)",
         "dot": "#2F6FDB",
     },
     "both": {"label": "Оба тревожатся", "bg": "var(--both-bg)", "fg": "var(--both-fg)", "dot": "#C93434"},
     "words": {"label": "Слова ≠ цифры", "bg": "var(--words-bg)", "fg": "var(--words-fg)", "dot": "#6C4FD6"},
+    "alert": {
+        "label": "Проблемный показатель",
+        "bg": "var(--both-bg)",
+        "fg": "var(--both-fg)",
+        "dot": "#C93434",
+    },
+    "watch": {
+        "label": "Повтор в комментариях",
+        "bg": "var(--over-bg)",
+        "fg": "var(--over-fg)",
+        "dot": "#E38B00",
+    },
     "neutral": {
         "label": "Сигналов нет",
         "bg": "var(--neutral-bg)",
@@ -58,12 +76,23 @@ TYPE_UP = {
     "lag": "ЗАПАЗДЫВАНИЕ",
     "words": "СЛОВА ≠ ЦИФРЫ",
     "decline": "ОБЩЕЕ ПАДЕНИЕ",
+    "low": "КРИТИЧНАЯ ОЦЕНКА",
+    "gap": "РАСХОЖДЕНИЕ",
+    "drop": "РЕЗКОЕ СНИЖЕНИЕ",
+    "repeat": "ПОВТОР В КОММЕНТАРИЯХ",
+}
+ZONE = {
+    "red": {"label": "Критичный сигнал", "dot": "#C93434"},
+    "amber": {"label": "Зона внимания", "dot": "#E38B00"},
+    "green": {"label": "Положительная оценка", "dot": "#1A7D44"},
 }
 TITLE = {
-    "over": "Оценки расходятся: стажёр выше",
-    "under": "Стажёр недооценивает себя",
+    "over": "Стажёр видит ситуацию лучше, чем наставник",
+    "under": "Стажёр видит ситуацию хуже, чем наставник",
     "both": "Оба снижают оценки",
     "words": "Высокие баллы, тревожный текст",
+    "alert": "Проблемный показатель",
+    "watch": "Сложности повторяются в комментариях",
 }
 SIDE_LABEL = {"intern": "Стажёр", "mentor": "Наставник"}
 TOPIC_NAME = {k: v.capitalize() for k, v in TOPIC_RU.items()}
@@ -74,8 +103,50 @@ RECOMMEND = {
     "words": ("talk", "Личная беседа один на один", "HR"),
     "decline": ("load", "HR и руководитель: решить нагрузку наставника", "срочно"),
     "missing": ("remind", "Напомнить об анкете", "рассылка"),
+    "low": ("talk", "Разговор по проблемному показателю", "в ближайшие дни"),
+    "gap": ("meeting", "Встреча втроём: стажёр, наставник, HR", "на этой неделе"),
+    "drop": ("show", "Выяснить у обеих сторон, что изменилось за месяц", "короткий разговор"),
+    "repeat": ("talk", "Разобрать повторяющуюся проблему из комментариев", "HR"),
 }
 STATUS_RU = {"assigned": "Назначено", "done": "Выполнено", "effect_checked": "Эффект проверен"}
+
+
+def _month_span(program: Program, periods: list[int]) -> str:
+    """«июнь–август, октябрь»: подряд идущие месяцы склеиваются."""
+    runs: list[list[int]] = []
+    for p in sorted(periods):
+        if runs and p == runs[-1][-1] + 1:
+            runs[-1].append(p)
+        else:
+            runs.append([p])
+    return ", ".join(
+        month_name(program, r[0]) + (f"–{month_name(program, r[-1])}" if len(r) > 1 else "") for r in runs
+    )
+
+
+def timeline(ps: PairSeries, cfg: dict, program: Program, upto: int | None = None) -> list[dict]:
+    """Светофор пары по контрольным периодам с сигналами и их основаниями."""
+    out = []
+    for p in ps.periods:
+        if upto is not None and p > upto:
+            break
+        r = evaluate(ps, p, cfg, lambda x: month_name(program, x))
+        out.append(
+            {
+                "p": p,
+                "month": month_name(program, p),
+                "zone": r.zone,
+                "zone_ru": ZONE[r.zone]["label"],
+                "dot": ZONE[r.zone]["dot"],
+                "index": r.index,
+                "signals": [
+                    {"type": x.type, "label": SIGNAL_RU.get(x.type, x.type), "description": x.description}
+                    for x in r.signals
+                    if x.type != "missing"
+                ],
+            }
+        )
+    return out
 
 
 def _signals_at(db: Session, program: Program, period: int) -> dict[int | None, list[Signal]]:
@@ -94,6 +165,15 @@ def _state(res: PairResult | None, ps: PairSeries) -> str:
     first, last = ps.periods[0], res.period
     rising = all((ps.overall(s, last) or 0) >= (ps.overall(s, first) or 0) for s in SIDES)
     return "ok" if rising and len(ps.periods) > 1 else "neutral"
+
+
+def _side_all(ps: PairSeries, side: str, upto: int) -> float | None:
+    """Средняя оценка стороны по всем её показателям, включая темы без пары, в последнем известном месяце."""
+    for p in reversed([x for x in ps.periods if x <= upto]):
+        vals = [s[p] for s in ps.values.get(side, {}).values() if p in s]
+        if vals:
+            return round(sum(vals) / len(vals), 3)
+    return None
 
 
 def _last_known(ps: PairSeries, side: str, upto: int) -> float | None:
@@ -158,10 +238,26 @@ def dashboard(
             if r and r.abs_delta is not None:
                 abs_pts.append((p, r.abs_delta))
         real = [s for s in (res.signals if res else []) if s.type != "missing"]
+        zone = res.zone if res else None
+        tl = timeline(ps, cfg, program, upto=m)
         rows.append(
             {
                 "id": ps.pair_id,
                 "code": pair.code,
+                "zone": zone,
+                "zone_ru": ZONE[zone] if zone else None,
+                "timeline": [
+                    {
+                        "p": t["p"],
+                        "zone": t["zone"],
+                        "dot": t["dot"],
+                        "index": t["index"],
+                        "labels": list(dict.fromkeys(x["label"] for x in t["signals"])),
+                    }
+                    for t in tl
+                ],
+                "flagged": [t["p"] for t in tl if t["zone"] != "green"],
+                "red_months": [t["p"] for t in tl if t["zone"] == "red"],
                 "intern": pair.intern.external_id,
                 "mentor": pair.mentor.external_id,
                 "dept": d,
@@ -172,6 +268,8 @@ def dashboard(
                 "signals": [s.type for s in (res.signals if res else [])],
                 "i": _last_known(ps, "intern", m),
                 "m": _last_known(ps, "mentor", m),
+                "i_all": _side_all(ps, "intern", m),
+                "m_all": _side_all(ps, "mentor", m),
                 "abs": [[p, v] for p, v in abs_pts],
                 "forecast": _forecast(abs_pts) if m == last else None,
                 "abs_now": res.abs_delta if res else None,
@@ -180,6 +278,12 @@ def dashboard(
                 "res": res,
             }
         )
+
+    def plural(k: int, a: str, b: str, c: str) -> str:
+        return (
+            a if k % 10 == 1 and k % 100 != 11 else b if 2 <= k % 10 <= 4 and not 12 <= k % 100 <= 14 else c
+        )
+
     attn = [r for r in rows if r["visible"]]
     n = len(rows)
     healths = [r["health"] for r in rows if r["health"] is not None]
@@ -207,10 +311,31 @@ def dashboard(
             if states["words"] == 1
             else f"в {states['words']} слова не совпадают с цифрами"
         )
+    flagged = sorted(
+        [r for r in rows if r["flagged"]], key=lambda r: (-len(r["red_months"]), r["flagged"][0])
+    )
+    history = [
+        {
+            "pair": r["code"],
+            "pair_id": r["id"],
+            "intern": r["intern"],
+            "zone": "red" if r["red_months"] else "amber",
+            "months": _month_span(program, r["flagged"]),
+            "red": _month_span(program, r["red_months"]) if r["red_months"] else "",
+        }
+        for r in flagged
+    ]
     if m < last:
         sub = f"Так выглядела программа в {month_name(program, m, 'in')}. Сдвигайте ползунок, чтобы увидеть, когда появился каждый сигнал."
     elif sub_parts:
         sub = (", ".join(sub_parts) + ".").capitalize()
+    elif history:
+        sub = (
+            f"Сейчас сигналов нет. За программу внимание требовалось {len(history)} "
+            f"{plural(len(history), 'паре', 'парам', 'парам')} из {n}: "
+            + "; ".join(f"{h['pair']} ({h['intern']}) — {h['months']}" for h in history)
+            + ". Сдвиньте ползунок месяцев, чтобы увидеть сигналы."
+        )
     else:
         sub = "Сигналов нет: оценки сторон согласованы."
     responded = {r.participant_id for r in db.query(Response).filter(Response.period == m)}
@@ -220,11 +345,6 @@ def dashboard(
         expected += [pr.intern, pr.mentor]
     got = sum(1 for p in expected if p.id in responded)
     pending = [p.external_id for p in expected if p.id not in responded]
-
-    def plural(k: int, a: str, b: str, c: str) -> str:
-        return (
-            a if k % 10 == 1 and k % 100 != 11 else b if 2 <= k % 10 <= 4 and not 12 <= k % 100 <= 14 else c
-        )
 
     talk = db.query(TalkRequest).filter(TalkRequest.answered.is_(False)).order_by(TalkRequest.id.desc()).all()
     talk = [t for t in talk if (pt := db.get(Participant, t.participant_id)) and pt.program_id == program.id]
@@ -246,17 +366,23 @@ def dashboard(
                     "why": f"Тема: {t.topic}. {t.text or 'Без комментария.'}",
                 }
             )
-    for r in sorted(attn, key=lambda r: r["health"] if r["health"] is not None else 100):
+    zone_order = {"red": 0, "amber": 1, "green": 2, None: 3}
+    for r in sorted(
+        attn, key=lambda r: (zone_order[r["zone"]], r["health"] if r["health"] is not None else 100)
+    ):
         res: PairResult = r["res"]
         types = [s.type for s in res.signals if s.type in TYPE_UP]
-        main = next((s for s in res.signals if s.type in ("words", "decline")), None) or next(
-            (s for s in res.signals if s.type in TYPE_UP), None
+        main = (
+            next((s for s in res.signals if s.type in ("gap", "low", "drop")), None)
+            or next((s for s in res.signals if s.type in ("words", "decline")), None)
+            or next((s for s in res.signals if s.type in TYPE_UP), None)
         )
         alerts.append(
             {
                 "pair": r["code"],
                 "pair_id": r["id"],
-                "dot": r["st"]["dot"],
+                "dot": ZONE[r["zone"]]["dot"] if r["zone"] else r["st"]["dot"],
+                "zone": r["zone"],
                 "type": " + ".join(TYPE_UP[t] for t in dict.fromkeys(types)),
                 "title": TITLE.get(r["state"], "Нужен разговор"),
                 "why": main.description if main else "",
@@ -270,7 +396,7 @@ def dashboard(
         .all()
     )
     topics = sorted(
-        set.intersection(*(set(ps.topics()) for ps in series)) if series else set(),
+        {t for ps in series for s in SIDES for t in ps.values.get(s, {})},
         key=lambda t: list(TOPIC_RU).index(t) if t in TOPIC_RU else 99,
     )
     heat_rows = []
@@ -333,11 +459,23 @@ def dashboard(
         "sub": sub,
         "depts": depts,
         "dept": dept or "all",
+        "zones": {z: sum(1 for r in rows if r["zone"] == z) for z in ZONE},
+        "history": history,
         "kpis": [
+            {
+                "label": "Светофор",
+                "value": " · ".join(str(sum(1 for r in rows if r["zone"] == z)) for z in ZONE),
+                "dots": [
+                    {"n": sum(1 for r in rows if r["zone"] == z), "color": ZONE[z]["dot"]} for z in ZONE
+                ],
+                "note": "критично · внимание · норма",
+                "color": "var(--ink)",
+                "help": "Красный — оценка 1–2 из 5, расхождение сторон или падение на 2+ балла; жёлтый — другие сигналы; зелёный — сигналов нет",
+            },
             {
                 "label": "Пар в зоне внимания",
                 "value": f"{len(attn)} из {n}",
-                "note": "по четырём типам расхождения",
+                "note": "сигналы по оценкам и комментариям",
                 "color": "var(--over)" if attn else "var(--ok-fg)",
                 "help": "Пары, у которых сработал хотя бы один сигнал",
             },
@@ -655,6 +793,8 @@ def diagnosis(
         "words": "Слова не совпадают с цифрами",
         "lag": "Запаздывание реакции",
         "missing": "Анкета не получена",
+        "critical": "Критичные показатели",
+        "repeat": "Повтор проблемы в комментариях",
     }
     contrib = sorted(
         [{"name": pen_names[k], "v": round(v)} for k, v in res.penalties.items() if v >= 1],
@@ -711,7 +851,7 @@ def diagnosis(
         )
     have = {a["kind"] for a in actions}
     recommended = []
-    for t in ("decline", "growth", "level", "lag", "words", "missing"):
+    for t in ("low", "gap", "drop", "repeat", "decline", "growth", "level", "lag", "words", "missing"):
         if t in types and RECOMMEND[t][0] not in have:
             kind, title, note = RECOMMEND[t]
             recommended.append({"kind": kind, "title": title, "note": note})
@@ -723,10 +863,18 @@ def diagnosis(
         row = next((x for x in db_sigs if x.type == s["type"]), None)
         if row:
             s["id"], s["verdict"] = row.id, row.verdict
-    summary = (
-        " ".join(dict.fromkeys(s.cause for s in res.signals if s.type != "missing"))
-        or "Сигналов нет: оценки сторон близки."
-    )
+    tl = timeline(ps, cfg, program)
+    summary = " ".join(dict.fromkeys(s.cause for s in res.signals if s.type != "missing"))
+    past = [t for t in tl[:-1] if t["zone"] != "green"]
+    if not summary and past:
+        worst = max(past, key=lambda t: (t["zone"] == "red", len(t["signals"])))
+        kinds = ", ".join(dict.fromkeys(x["label"].lower() for t in past for x in t["signals"]))
+        summary = (
+            f"Сейчас сигналов нет. Внимание требовалось: {_month_span(program, [t['p'] for t in past])} "
+            f"({kinds}); сильнее всего — {worst['month']}. Ситуация выправилась — "
+            "проверить на ближайшей встрече, что договорённости работают, и сохранить текущий формат."
+        )
+    summary = summary or "Сигналов нет: оценки сторон близки."
     notes = []
     if user.role == "hr":
         notes = [
@@ -746,6 +894,9 @@ def diagnosis(
         "st": ST[state],
         "health": res.index,
         "summary": summary,
+        "timeline": tl,
+        "zone": res.zone,
+        "zone_ru": ZONE[res.zone]["label"],
         "talk": talk,
         "months": [{"p": p, "short": month_name(program, p, "short")} for p in ps.periods],
         "next_short": month_name(program, last + 1, "short"),

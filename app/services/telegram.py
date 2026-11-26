@@ -84,6 +84,7 @@ def send_reminder(db: Session, program: Program, part: Participant, title: str, 
     if not chat:
         return "участник не подключил бота"
     url = get_settings().public_url.rstrip("/") + link
+    n = len(_questions(db, part))
     kb = [[{"text": "Ответить здесь, в чате", "callback_data": "survey"}]]
     if url.startswith("https://"):
         kb.append([{"text": "Открыть анкету на сайте", "url": url}])
@@ -91,7 +92,7 @@ def send_reminder(db: Session, program: Program, part: Participant, title: str, 
         cfg["token"],
         "sendMessage",
         chat_id=chat,
-        text=f"🔔 {title}\nШесть вопросов, две минуты. Ответы видит только HR.",
+        text=f"🔔 {title}\n{_plural_q(n)}, несколько минут. Ответы видит только HR.",
         reply_markup={"inline_keyboard": kb},
     )
     if ok:
@@ -109,6 +110,32 @@ def _questions(db: Session, part: Participant) -> list:
     return list(qn.questions) if qn else []
 
 
+def _plural_q(n: int) -> str:
+    word = (
+        "вопрос"
+        if n % 10 == 1 and n % 100 != 11
+        else "вопроса"
+        if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14
+        else "вопросов"
+    )
+    return f"{n} {word}"
+
+
+def _intro(db: Session, part: Participant) -> str:
+    """Первое сообщение анкеты: за какой месяц и, для наставника, о каком стажёре."""
+    from app.services.analytics.service import month_name
+    from app.services.forms.submit import current_period, pair_of
+
+    prog = db.get(Program, part.program_id)
+    period = current_period(db, prog)
+    text = f"Анкета за {month_name(prog, period)} (месяц {period} стажировки), {_plural_q(len(_questions(db, part)))}."
+    pair = pair_of(db, part)
+    if part.side == "mentor" and pair:
+        intern = db.get(Participant, pair.intern_participant_id)
+        text += f"\nВопросы — о работе стажёра {intern.external_id}."
+    return text + "\nОтветы видит только HR, другая сторона их не увидит."
+
+
 def _ask(token: str, chat: int, st: dict, db: Session) -> None:
     part = db.get(Participant, st["pid"])
     qs = _questions(db, part)
@@ -122,7 +149,7 @@ def _ask(token: str, chat: int, st: dict, db: Session) -> None:
             token,
             "sendMessage",
             chat_id=chat,
-            text=f"{n}. {q.text}\nНапишите ответом или нажмите «Пропустить».",
+            text=f"{n}. {q.text}\nНапишите ответ сообщением или нажмите «Пропустить».",
             reply_markup={"inline_keyboard": [[{"text": "Пропустить", "callback_data": "skip"}]]},
         )
         st["wait_text"] = q.id
@@ -131,11 +158,12 @@ def _ask(token: str, chat: int, st: dict, db: Session) -> None:
     vals = list(range(lo, hi + 1))
     rows = [vals[i : i + 5] for i in range(0, len(vals), 5)]
     kb = [[{"text": str(v), "callback_data": f"a:{q.id}:{v}"} for v in row] for row in rows]
+    edge = q.scale_labels if q.scale_labels and len(q.scale_labels) == 2 else ["совсем нет", "полностью да"]
     call(
         token,
         "sendMessage",
         chat_id=chat,
-        text=f"{n}. {q.text}\n{lo} — совсем нет, {hi} — полностью да",
+        text=f"{n}. {q.text}\n{lo} — {edge[0]}, {hi} — {edge[1]}",
         reply_markup={"inline_keyboard": kb},
     )
 
@@ -145,7 +173,7 @@ def _finish(token: str, chat: int, st: dict, db: Session, part: Participant) -> 
 
     prog = db.get(Program, part.program_id)
     try:
-        submit_response(db, prog, part, st["answers"], st.get("comment", ""), source="telegram")
+        submit_response(db, prog, part, st["answers"], source="telegram")
     except SubmitError as e:
         call(token, "sendMessage", chat_id=chat, text=f"Не получилось сохранить: {e}")
         return
@@ -232,8 +260,7 @@ def handle(db: Session, org: int, token: str, upd: dict) -> None:
         call(token, "answerCallbackQuery", callback_query_id=cb["id"])
         data = cb.get("data", "")
         if data == "survey":
-            _state[key] = {"pid": pid, "i": 0, "answers": {}}
-            _ask(token, chat, _state[key], db)
+            _start_survey(token, chat, key, pid, db)
         elif data.startswith("a:") and key in _state:
             _, qid, v = data.split(":")
             st = _state[key]
@@ -248,13 +275,11 @@ def handle(db: Session, org: int, token: str, upd: dict) -> None:
         return
     st = _state.get(key)
     if st and st.get("wait_text") and msg.get("text"):
-        st["comment"] = (st.get("comment", "") + "\n" + msg["text"]).strip()
-        st.pop("wait_text")
+        st["answers"][st.pop("wait_text")] = msg["text"].strip()
         st["i"] += 1
         _ask(token, chat, st, db)
     elif (msg.get("text") or "").lower() in ("/anketa", "анкета"):
-        _state[key] = {"pid": pid, "i": 0, "answers": {}}
-        _ask(token, chat, _state[key], db)
+        _start_survey(token, chat, key, pid, db)
     else:
         call(
             token,
@@ -262,6 +287,12 @@ def handle(db: Session, org: int, token: str, upd: dict) -> None:
             chat_id=chat,
             text="Я присылаю анкету раз в месяц. Заполнить сейчас — команда /anketa.",
         )
+
+
+def _start_survey(token: str, chat: int, key: tuple[int, int], pid: int, db: Session) -> None:
+    _state[key] = {"pid": pid, "i": 0, "answers": {}}
+    call(token, "sendMessage", chat_id=chat, text=_intro(db, db.get(Participant, pid)))
+    _ask(token, chat, _state[key], db)
 
 
 def _poll(token: str, stop: threading.Event) -> None:

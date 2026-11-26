@@ -79,7 +79,7 @@ def test_assistant_respects_roles(full) -> None:
     first = hr.post(
         "/api/assistant", json={"message": "Кому помочь первым?"}, headers=csrf_headers(hr)
     ).json()
-    assert "П-03" in first["answer"]
+    assert "П-05" in first["answer"] and "СТ-006" in first["answer"]
     intern = login("intern@pulse.demo")
     r = intern.post(
         "/api/assistant", json={"message": "Что думает обо мне наставник?"}, headers=csrf_headers(intern)
@@ -96,7 +96,7 @@ def test_assistant_respects_roles(full) -> None:
     r = intern.post(
         "/api/assistant", json={"message": "Что с парой П-02?"}, headers=csrf_headers(intern)
     ).json()
-    assert "С-102" not in r["answer"] and "Н-202" not in r["answer"]
+    assert "СТ-002" not in r["answer"] and "Н-002" not in r["answer"]
 
 
 def test_constructor_sections_tags_and_reader_progress(full) -> None:
@@ -130,7 +130,7 @@ def test_constructor_sections_tags_and_reader_progress(full) -> None:
     assert c["status"] == "draft" and c["tags"] == ["Оборудование"]
     assert hr.put(f"/api/courses/{c['id']}", json=c | {"sections": []}, headers=h).status_code == 400
     pairs = hr.get("/api/dashboard").json()["pairs"]
-    pid = next(p["id"] for p in pairs if p["code"] == "П-04")
+    pid = next(p["id"] for p in pairs if p["code"] == "П-06")
     hr.post(f"/api/courses/{c['id']}/assign", json={"pair_ids": [pid]}, headers=h)
     for who in ("intern@pulse.demo", "mentor@pulse.demo"):
         side = login(who)

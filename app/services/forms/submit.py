@@ -156,8 +156,8 @@ def submit_response(
     """Записывает анкету участника и запускает пересчёт.
 
     Args:
-        answers: question_id → значение (число шкалы или подпись словесной шкалы).
-        comment: Свободный комментарий.
+        answers: question_id → значение (число шкалы, подпись словесной шкалы или текст открытого вопроса).
+        comment: Свободный комментарий без привязки к вопросу: пишется в первый незаполненный открытый вопрос.
         source: own_form / yandex / google / demo.
         period: Месяц программы; по умолчанию — текущий.
         refine_async: Дообновить разбор комментария LLM в фоне.
@@ -189,15 +189,26 @@ def submit_response(
         submitted_at=datetime.now(),
         complete=True,
     )
+    texts: dict[int, str] = {}
     for qid, raw in answers.items():
         q = qs.get(int(qid))
-        if q is None or q.qtype == "text":
+        if q is None:
+            continue
+        if q.qtype == "text":
+            if str(raw or "").strip():
+                texts[q.id] = str(raw).strip()[:2000]
             continue
         value_raw, value_norm = _norm_value(q, raw)
         resp.answers.append(Answer(question_id=q.id, value_raw=value_raw, value_norm=value_norm))
-    text_q = next((q for q in qn.questions if q.qtype == "text"), None)
     if comment.strip():
-        resp.answers.append(Answer(question_id=text_q.id if text_q else None, text=comment.strip()[:2000]))
+        text_q = next((q for q in qn.questions if q.qtype == "text" and q.id not in texts), None)
+        if text_q is not None:
+            texts[text_q.id] = comment.strip()[:2000]
+        else:
+            last = next((q.id for q in reversed(qn.questions) if q.qtype == "text"), None)
+            texts[last] = (texts.get(last, "") + "\n" + comment.strip()).strip()[:2000]
+    for qid, text in texts.items():
+        resp.answers.append(Answer(question_id=qid, text=text))
     db.add(resp)
     db.commit()
 
@@ -225,7 +236,7 @@ def submit_response(
     )
     db.commit()
     bus.publish(program.id, "pair_updated", data)
-    if refine_async and comment.strip():
+    if refine_async and texts:
         threading.Thread(
             target=_refine, args=(program.id, pair.id if pair else None, period, data), daemon=True
         ).start()

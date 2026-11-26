@@ -3,7 +3,7 @@
   "use strict";
   const { api, esc, toast } = window.Pulse;
   const role = document.getElementById("main").dataset.role, isHr = role === "hr";
-  const META = { kpi: "Ключевые показатели", tasks: "Мои задачи на неделю", signals: "Сигналы", map: "Карта пар", trend: "Динамика и прогноз", system: "Проблема пары или программы", forms: "Анкеты за месяц", feed: "Комментарии", health: "Индекс здоровья" };
+  const META = { kpi: "Ключевые показатели", tasks: "Мои задачи на неделю", signals: "Сигналы", map: "Карта пар", trend: "Динамика по периодам", system: "Проблема пары или программы", forms: "Анкеты за месяц", feed: "Комментарии", health: "Индекс здоровья" };
   const FLEX = { kpi: "1 1 100%", tasks: "1 1 380px", signals: "1 1 460px", map: "1 1 380px", trend: "2 1 560px", system: "1 1 340px", forms: "1 1 300px", feed: "1 1 460px", health: "1 1 300px" };
   const PRESETS = [["hr", "HR: всё", {}], ["lead", "Руководителю: кратко", { forms: true, feed: true, health: true, tasks: true }], ["coach", "Работа с наставниками", { kpi: true, map: true, trend: true }]];
   let D = null, L = null, edit = false, period = null, dept = "all", flash = null;
@@ -32,7 +32,7 @@
   function W_kpi() {
     let h = (edit ? head("kpi", META.kpi) : "") + '<div class="grid-auto">';
     D.kpis.forEach((k) => {
-      h += '<div class="card kpi"><div class="row between nowrap"><p class="small muted">' + esc(k.label) + '</p><span class="help" title="' + esc(k.help) + '" aria-label="Пояснение: ' + esc(k.help) + '" tabindex="0">?</span></div><p class="value" style="color:' + k.color + '">' + esc(k.value) + '</p><p class="xs muted" style="margin-top:6px">' + esc(k.note) + "</p></div>";
+      h += '<div class="card kpi"><div class="row between nowrap"><p class="small muted">' + esc(k.label) + '</p><span class="help" title="' + esc(k.help) + '" aria-label="Пояснение: ' + esc(k.help) + '" tabindex="0">?</span></div><p class="value" style="color:' + k.color + '">' + (k.dots ? '<span class="row nowrap" style="gap:14px">' + k.dots.map((d) => '<span class="row nowrap" style="gap:6px"><span aria-hidden="true" style="width:16px;height:16px;border-radius:50%;background:' + d.color + '"></span>' + d.n + "</span>").join("") + "</span>" : esc(k.value)) + '</p><p class="xs muted" style="margin-top:6px">' + esc(k.note) + "</p></div>";
     });
     return '<section data-w="kpi" style="order:' + L.order.indexOf("kpi") + ";flex:" + FLEX.kpi + ";min-width:0;" + (edit ? "outline:2px dashed #9DBDF2;outline-offset:4px;border-radius:18px" : "") + '">' + h + "</div></section>";
   }
@@ -51,7 +51,12 @@
   }
   function W_signals() {
     let h = head("signals", "Сигналы · что требует внимания");
-    if (!D.alerts.length) h += '<div class="issue done"><span><b>Сигналов нет.</b> В этот период и в этом подразделении пары двигались согласованно. Сдвиньте ползунок вперёд, чтобы увидеть, когда появились первые сигналы.</span></div>';
+    if (!D.alerts.length) h += '<div class="issue done"><span><b>Сигналов нет.</b> В этот период и в этом подразделении пары двигались согласованно.' + (D.history && D.history.length ? " Ниже — кому внимание требовалось раньше." : " Сдвиньте ползунок вперёд, чтобы увидеть, когда появились первые сигналы.") + "</span></div>";
+    if (!D.alerts.length && D.history && D.history.length) {
+      h += '<p class="xs muted" style="font-weight:700;letter-spacing:.06em;margin:10px 0 6px">ЗА ПРОГРАММУ</p><div class="col" style="gap:8px;margin-bottom:10px">';
+      D.history.forEach((x) => { h += '<a class="signal-btn" style="text-decoration:none;color:inherit" href="' + pairLink(x.pair_id) + '"><span class="pair-badge" style="background:' + (x.zone === "red" ? "#C93434" : "#E38B00") + '">' + esc(x.pair) + '</span><span class="grow col" style="gap:3px"><span class="small" style="font-weight:600">' + esc(x.intern) + " · " + esc(x.months) + '</span><span class="small muted">' + (x.red ? "Критичные сигналы: " + esc(x.red) : "Зона внимания") + '</span></span><span aria-hidden="true" style="color:var(--accent);font-size:18px">→</span></a>'; });
+      h += "</div>";
+    }
     h += '<div class="col" style="gap:10px">';
     D.alerts.forEach((a) => {
       h += '<a class="signal-btn" style="text-decoration:none;color:inherit" href="' + (a.pair_id ? pairLink(a.pair_id) : "/pairs") + '"><span class="pair-badge" style="background:' + a.dot + '">' + esc(a.pair) + '</span><span class="grow col" style="gap:3px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">' + esc(a.type) + '</span><span class="small" style="font-weight:600">' + esc(a.title) + '</span><span class="small muted" style="line-height:1.45">' + esc(a.why) + '</span></span><span aria-hidden="true" style="color:var(--accent);font-size:18px">→</span></a>';
@@ -59,49 +64,44 @@
     return card("signals", h + "</div>");
   }
   function W_map() {
+    // Стажёр оценивает свой опыт стажировки, наставник — работу стажёра. Граница квадрантов — 4 из 5 («хорошо»).
+    const GOOD = 0.75;
+    const pos = (v) => (v >= GOOD ? 50 - ((v - GOOD) / (1 - GOOD)) * 42 : 50 + ((GOOD - Math.max(v, 0)) / GOOD) * 42);
+    const five = (v) => (1 + v * 4).toFixed(1).replace(".", ",");
     let h = head("map", "Карта пар");
-    h += '<div class="row nowrap" style="gap:8px;align-items:stretch;flex:1"><p class="xs muted" style="writing-mode:vertical-rl;transform:rotate(180deg);text-align:center">оценка стажёра →</p><div class="grow col" style="gap:6px"><div style="position:relative;flex:1;min-height:260px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:4px">';
-    h += '<div style="background:var(--over-bg);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--over-fg)">Переоценивает себя</div><div style="background:var(--ok-bg);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--ok-fg);text-align:right">Согласны, растут</div><div style="background:var(--both-bg);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--both-fg);display:flex;align-items:flex-end">Оба тревожатся</div><div style="background:var(--accent-soft);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--under-fg);display:flex;align-items:flex-end;justify-content:flex-end">Недооценивает себя</div>';
+    h += '<div class="row nowrap" style="gap:8px;align-items:stretch;flex:1"><p class="xs muted" style="writing-mode:vertical-rl;transform:rotate(180deg);text-align:center">опыт стажировки (стажёр) →</p><div class="grow col" style="gap:6px"><div style="position:relative;flex:1;min-height:260px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:4px">';
+    h += '<div style="background:var(--over-bg);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--over-fg)">Стажёру комфортно, наставник недоволен работой</div><div style="background:var(--ok-bg);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--ok-fg);text-align:right">Всё хорошо</div><div style="background:var(--both-bg);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--both-fg);display:flex;align-items:flex-end">Проблема у обоих</div><div style="background:var(--accent-soft);border-radius:12px;padding:8px 10px;font-size:12px;font-weight:600;color:var(--under-fg);display:flex;align-items:flex-end;justify-content:flex-end;text-align:right">Работает хорошо, но стажёру трудно</div>';
     const placed = [];
-    D.pairs.filter((p) => p.i != null && p.m != null).forEach((p) => {
-      let x = 8 + p.m * 84, y = 92 - p.i * 84;
-      placed.forEach((q) => { if (Math.abs(q[0] - x) < 9 && Math.abs(q[1] - y) < 9) y += 10; });
+    D.pairs.filter((p) => p.i_all != null && p.m_all != null).forEach((p) => {
+      const x = 100 - pos(p.m_all); let y = pos(p.i_all);
+      placed.forEach((q) => { if (Math.abs(q[0] - x) < 11 && Math.abs(q[1] - y) < 9) y += 9; });
       placed.push([x, y]);
-      h += '<a class="dash-pin" href="' + pairLink(p.id) + '" aria-label="Открыть пару ' + esc(p.code) + '" title="' + esc(p.code + " · " + p.st.label) + '" style="position:absolute;left:' + x.toFixed(1) + "%;top:" + y.toFixed(1) + "%;transform:translate(-50%,-50%);min-width:48px;height:32px;border-radius:999px;border:2px solid var(--card);background:" + p.st.dot + ';color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(5,7,14,.25);padding:0 8px;text-decoration:none' + (flash === p.id ? ";outline:3px solid #22C55E" : "") + '">' + esc(p.code) + "</a>";
+      const dot = p.zone_ru ? p.zone_ru.dot : p.st.dot, tip = p.code + " · стажёр " + five(p.i_all) + " из 5, наставник " + five(p.m_all) + " из 5" + (p.zone_ru ? " · " + p.zone_ru.label : "");
+      h += '<a class="dash-pin" href="' + pairLink(p.id) + '" aria-label="' + esc(tip) + '" title="' + esc(tip) + '" style="position:absolute;left:' + x.toFixed(1) + "%;top:" + y.toFixed(1) + "%;transform:translate(-50%,-50%);min-width:48px;height:32px;border-radius:999px;border:2px solid var(--card);background:" + dot + ';color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(5,7,14,.25);padding:0 8px;text-decoration:none;white-space:nowrap' + (flash === p.id ? ";outline:3px solid #22C55E" : "") + '">' + esc(p.code) + "</a>";
     });
-    h += '</div><p class="xs muted" style="text-align:center">оценка наставника →</p></div></div>';
+    h += '</div><p class="xs muted" style="text-align:center">работа стажёра (наставник) →</p><p class="xs muted">Средние по всем показателям анкеты, граница — 4 из 5. Цвет — светофор пары.</p></div></div>';
     return card("map", h);
   }
-  // Телефон: своя сетка графика под ширину экрана, а не уменьшенная копия десктопной
-  const PHONE = window.matchMedia("(max-width: 767px)");
-  PHONE.addEventListener("change", () => { if (D) render(); });
   function W_trend() {
-    const ph = PHONE.matches, ms = D.months, idx = ms.findIndex((x) => x.p === D.period), n = ms.length;
-    const G = ph
-      ? { w: 340, h: 250, l: 36, r: 330, t: 12, ph: 196, fs: 12, ticks: [1, 0.5, 0], lw: 3, fw: 2.4 }
-      : { w: 640, h: 252, l: 40, r: 628, t: 14, ph: 216, fs: 10, ticks: [1, 0.75, 0.5, 0.25, 0], lw: 2.4, fw: 2 };
-    const fcast = D.period === D.last, step = ph ? (G.r - G.l) / Math.max(1, n - (fcast ? 0 : 1)) : 98;
-    const X = (i) => G.l + i * step, Y = (v) => G.t + (1 - Math.min(Math.max(0, v) / 0.6, 1)) * G.ph;
-    const fx = Math.min(X(n), G.r), base = G.t + G.ph;
-    let h = head("trend", "Динамика расхождения и прогноз");
-    h += '<div class="chart-wrap"><svg viewBox="0 0 ' + G.w + " " + G.h + '" role="img" aria-label="Линии расхождения по парам по месяцам и прогноз" style="width:100%;height:auto;display:block;margin-top:4px">';
-    if (fcast) h += '<rect x="' + X(n - 1) + '" y="' + G.t + '" width="' + (fx - X(n - 1)) + '" height="' + G.ph + '" fill="#F3F5F9" rx="6"></rect>';
-    G.ticks.forEach((v) => { const y = G.t + (1 - v) * G.ph; h += '<line x1="' + G.l + '" x2="' + G.r + '" y1="' + y + '" y2="' + y + '" stroke="#E6E9EF"></line><text x="' + (G.l - 6) + '" y="' + (y + 4) + '" font-size="' + G.fs + '" fill="#5B6478" text-anchor="end">' + (v * 0.6).toFixed(ph ? 1 : 2) + "</text>"; });
-    const ry = Y(D.red_zone);
-    h += '<line x1="' + G.l + '" x2="' + G.r + '" y1="' + ry + '" y2="' + ry + '" stroke="#C93434" stroke-dasharray="3 4"></line><text x="' + (G.l + 4) + '" y="' + (ry - 5) + '" font-size="' + G.fs + '" fill="#C93434">красная зона</text>';
+    // Матрица «пары × контрольные периоды»: цвет — светофор, число — индекс здоровья, подсказка — сигналы.
+    const ms = D.months, cols = "minmax(40px,88px) repeat(" + ms.length + ",minmax(34px,1fr))";
+    const rows = "24px repeat(" + D.pairs.length + ",34px)", cur = ms.findIndex((m) => m.p === D.period);
+    let h = head("trend", "Динамика по контрольным периодам");
+    h += '<div class="scroll-x"><div style="position:relative;display:grid;grid-template-columns:' + cols + ";grid-template-rows:" + rows + ';gap:4px;min-width:290px;font-size:12px">';
+    // подложка выбранного месяца: абсолютный элемент сетки не занимает ячейку при раскладке
+    if (cur >= 0) h += '<span aria-hidden="true" style="position:absolute;grid-column:' + (cur + 2) + ';grid-row:1 / -1;inset:-4px -3px;border-radius:12px;background:var(--accent-soft);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent)"></span>';
+    h += "<span></span>" + ms.map((m, i) => '<span style="position:relative;align-self:center;justify-self:center;padding:2px 8px;border-radius:999px;' + (i === cur ? "background:var(--accent);color:#fff;font-weight:700" : "color:var(--muted);font-weight:500") + '">' + esc(m.short) + "</span>").join("");
     D.pairs.forEach((p) => {
-      const pts = p.abs.map(([per, v]) => X(ms.findIndex((x) => x.p === per)) + "," + Y(v).toFixed(1));
-      h += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + p.st.dot + '" stroke-width="' + (flash === p.id ? G.lw + 1.5 : G.lw) + '" stroke-linejoin="round" stroke-linecap="round"></polyline>';
-      if (p.forecast != null && p.abs.length) { const last = p.abs[p.abs.length - 1]; h += '<polyline points="' + X(ms.findIndex((x) => x.p === last[0])) + "," + Y(last[1]).toFixed(1) + " " + fx + "," + Y(p.forecast).toFixed(1) + '" fill="none" stroke="' + p.st.dot + '" stroke-width="' + G.fw + '" stroke-dasharray="4 4"></polyline>'; }
-      if (ph && p.abs.length) { const last = p.abs[p.abs.length - 1]; h += '<circle cx="' + X(ms.findIndex((x) => x.p === last[0])) + '" cy="' + Y(last[1]).toFixed(1) + '" r="4" fill="' + p.st.dot + '" stroke="#fff" stroke-width="1.5"></circle>'; }
+      const by = {}; (p.timeline || []).forEach((t) => (by[t.p] = t));
+      h += '<a href="' + pairLink(p.id) + '" class="small" style="position:relative;align-self:center;font-weight:600;color:inherit;text-decoration:none;white-space:nowrap" title="' + esc(p.intern + " · " + p.mentor) + '">' + esc(p.code) + ' <span class="xs muted trend-id">' + esc(p.intern) + "</span></a>";
+      ms.forEach((m) => {
+        const t = by[m.p];
+        if (!t) { h += '<span style="position:relative;border-radius:8px;background:var(--soft);opacity:.5"></span>'; return; }
+        const tip = m.full + ": " + ({ red: "критичный сигнал", amber: "зона внимания", green: "сигналов нет" }[t.zone]) + (t.labels.length ? " — " + t.labels.join(", ") : "") + ". Индекс " + t.index;
+        h += '<a href="' + pairLink(p.id) + '" title="' + esc(tip) + '" aria-label="' + esc(p.code + ", " + tip) + '" style="position:relative;border-radius:8px;background:' + t.dot + ';color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;text-decoration:none">' + t.index + "</a>";
+      });
     });
-    ms.forEach((m, i) => { h += '<text x="' + X(i) + '" y="' + (base + (ph ? 22 : 18)) + '" font-size="' + (ph ? 12 : 11) + '" fill="' + (i <= idx ? "#5B6478" : "#B0B7C6") + '" text-anchor="middle">' + esc(m.short) + "</text>"; });
-    if (fcast) h += ph
-      ? '<text x="' + ((X(n - 1) + fx) / 2) + '" y="' + (G.t + 14) + '" font-size="12" fill="#0A7CD6" text-anchor="middle">' + esc(D.next_short) + "</text>"
-      : '<text x="' + fx + '" y="' + (base + 18) + '" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(D.next_short) + " · прогноз</text>";
-    h += "</svg></div>";
-    if (idx === 0) h += '<p class="small" style="background:var(--bg);border-radius:12px;padding:12px;margin-top:8px">Пока только одна анкета — тренд появится после второй.</p>';
-    h += '<div class="row chart-legend" style="gap:8px 14px;margin-top:8px">' + D.pairs.map((p) => '<span class="row nowrap xs" style="gap:6px;color:var(--muted-2)"><span style="width:14px;height:3px;border-radius:2px;background:' + p.st.dot + '"></span>' + esc(p.code + " · " + p.st.label) + "</span>").join("") + "</div>";
+    h += '</div></div><div class="row xs" style="gap:14px;margin-top:10px;color:var(--muted-2)">' + [["#C93434", "критичный сигнал"], ["#E38B00", "зона внимания"], ["#1A7D44", "сигналов нет"]].map((x) => '<span class="row nowrap" style="gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:' + x[0] + '"></span>' + x[1] + "</span>").join("") + '<span>число — индекс здоровья, наведите для сигналов</span></div>';
     return card("trend", h);
   }
   function W_system() {
@@ -170,7 +170,7 @@
     const ms = D.months, idx = Math.max(0, ms.findIndex((x) => x.p === D.period));
     let h = '<section class="hero"><div class="sphere orb" data-orb="lattice" data-size="560" aria-hidden="true"></div><div class="row between" style="align-items:flex-end;gap:18px"><div style="max-width:680px"><p class="tagline">' + esc(D.tag) + "</p><h1>" + esc(D.headline) + '</h1><p class="sub">' + esc(D.sub) + '</p></div><div class="row">';
     h += '<button type="button" class="btn on-dark" id="rep-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12"></path><path d="M7 10l5 5 5-5"></path><path d="M5 21h14"></path></svg>Отчёт</button>';
-    h += '<button type="button" class="btn on-dark" id="edit-btn" aria-pressed="' + edit + '"' + (edit ? ' style="background:var(--card);color:#05070E"' : "") + '><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>' + (edit ? "Готово" : "Настроить") + "</button></div></div></section>";
+    h += '<button type="button" class="btn on-dark" id="edit-btn" aria-pressed="' + edit + '"' + (edit ? ' style="background:#FFFFFF;color:#05070E;border-color:#FFFFFF"' : "") + '><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>' + (edit ? "Готово" : "Настроить") + "</button></div></div></section>";
     h += '<section class="card row" aria-label="Фильтры дашборда" style="gap:14px 28px;align-items:flex-end;padding:14px 18px"><div class="col" style="flex:1 1 320px;gap:6px"><label for="f-month" class="xs muted" style="font-weight:700;letter-spacing:.06em">ПЕРИОД · ДАННЫЕ НА ' + esc(ms[idx].full.toUpperCase()) + '</label><input id="f-month" type="range" min="0" max="' + (ms.length - 1) + '" step="1" value="' + idx + '" style="width:100%;accent-color:var(--accent);min-height:28px;cursor:pointer" aria-valuetext="' + esc(ms[idx].full) + '"><div class="row between nowrap" style="font-size:12px">' + ms.map((m, i) => '<span style="color:' + (i === idx ? "var(--accent)" : "var(--muted)") + ";font-weight:" + (i === idx ? 700 : 400) + '">' + esc(m.short) + "</span>").join("") + "</div></div>";
     h += '<div class="col" style="flex:2 1 440px;gap:6px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">ПОДРАЗДЕЛЕНИЕ</span><div class="row" style="gap:6px">' + [["all", "Все подразделения"]].concat(D.depts.map((d) => [d, d])).map(([k, n]) => '<button type="button" class="pill" data-dept="' + esc(k) + '" aria-pressed="' + (dept === k) + '">' + esc(n) + "</button>").join("") + "</div></div>";
     h += "</section>";

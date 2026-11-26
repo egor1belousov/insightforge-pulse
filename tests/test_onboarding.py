@@ -73,9 +73,9 @@ def test_new_company_gets_standard_questionnaire(client) -> None:
     )
     me = i.get("/api/me").json()
     qs = [q for q in me["questionnaire"]["questions"] if q["qtype"] != "text"]
-    assert len(qs) == 6
+    assert len(qs) == 7  # стандартная анкета — пульс-опрос стажёра МГТС
     r = i.post(
-        "/api/responses", json={"answers": {q["id"]: "8" for q in qs}, "comment": ""}, headers=csrf_headers(i)
+        "/api/responses", json={"answers": {q["id"]: "4" for q in qs}, "comment": ""}, headers=csrf_headers(i)
     )
     assert r.status_code == 200, r.text
     rows = hr.get("/api/forms/mailing").json()["rows"]

@@ -31,10 +31,10 @@ def test_connect_checks_masks_and_disconnects(demo, monkeypatch) -> None:  # noq
 
 def test_remind_reports_what_really_went(demo) -> None:  # noqa: F811
     hr = login("hr@pulse.demo")
-    r = hr.post("/api/forms/remind", json={"ids": ["Н-204"]}, headers=csrf_headers(hr)).json()
-    assert r["results"]["Н-204"]["site"] == "отправлено"
-    assert r["results"]["Н-204"]["email"] == "демо-адрес, письмо не отправляется"
-    assert r["results"]["Н-204"]["tg"] == "Telegram не подключён"
+    r = hr.post("/api/forms/remind", json={"ids": ["Н-006"]}, headers=csrf_headers(hr)).json()
+    assert r["results"]["Н-006"]["site"] == "отправлено"
+    assert r["results"]["Н-006"]["email"] == "демо-адрес, письмо не отправляется"
+    assert r["results"]["Н-006"]["tg"] == "Telegram не подключён"
     assert "сайт — 1" in r["message"] and "Не ушло" in r["message"]
 
 
@@ -52,18 +52,18 @@ def test_auto_reminders_schedule_quiet_hours_and_escalation(demo) -> None:  # no
         period = max(r.period for r in db.query(Response))
         start = notify.period_start(prog, period)
         pend = reminders.pending(db, prog, period)
-        assert [p.external_id for p in pend] == ["Н-204"]
+        assert [p.external_id for p in pend] == ["СТ-006", "Н-006"]
         notify.save(db, prog.organization_id, "reminders", notify.REMINDERS)
         assert notify.due(db, prog, period, pend, start) == []
         night = datetime.combine(date(start.year, start.month, 3), datetime.min.time()).replace(hour=23)
         assert "тихие часы" in reminders.run_program(db, prog, night)["message"]
         day = night.replace(day=3, hour=11)
         r = reminders.run_program(db, prog, day)
-        assert r["sent"] == ["Н-204"] and not r["escalated"]
+        assert r["sent"] == ["СТ-006", "Н-006"] and not r["escalated"]
         assert reminders.run_program(db, prog, day)["sent"] == []
         late = day.replace(day=9)
         r = reminders.run_program(db, prog, late)
-        assert r["sent"] == ["Н-204"] and r["escalated"] == ["Н-204"]
+        assert r["sent"] == ["СТ-006", "Н-006"] and r["escalated"] == ["СТ-006", "Н-006"]
 
 
 def test_telegram_links_and_survey_in_chat(demo, monkeypatch) -> None:  # noqa: F811
@@ -72,7 +72,7 @@ def test_telegram_links_and_survey_in_chat(demo, monkeypatch) -> None:  # noqa: 
         telegram, "call", lambda token, method, **p: sent.append({"m": method, **p}) or {"message_id": 1}
     )
     with SessionLocal() as db:
-        part = db.query(Participant).filter(Participant.external_id == "Н-204").one()
+        part = db.query(Participant).filter(Participant.external_id == "Н-006").one()
         org = db.get(Program, part.program_id).organization_id
         integrations._put(
             db, org, "int_telegram", {"connected": True, "token": "t", "info": "@pulse_bot", "secret": "s"}
@@ -96,12 +96,13 @@ def test_telegram_links_and_survey_in_chat(demo, monkeypatch) -> None:  # noqa: 
             telegram.handle(
                 db, org, "t", {"callback_query": {"id": "2", "data": data, "message": {"chat": {"id": 77}}}}
             )
-        telegram.handle(
-            db, org, "t", {"message": {"chat": {"id": 77}, "text": "Не хватает времени на стажёра"}}
-        )
+        for text in ("Не хватает времени на стажёра", "Нужна помощь HR"):  # два открытых вопроса МГТС
+            telegram.handle(db, org, "t", {"message": {"chat": {"id": 77}, "text": text}})
         assert "Спасибо" in sent[-1]["text"]
         r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "telegram").one()
-        assert any(a.text for a in r.answers)
+        texts = {a.question_id: a.text for a in r.answers if a.text}
+        assert len(texts) == 2 and None not in texts  # каждый открытый вопрос — отдельный ответ
+        assert any("о работе стажёра СТ-006" in (m.get("text") or "") for m in sent)
 
 
 def test_sandboxes_share_demo_bot_and_route_by_link(demo, monkeypatch) -> None:  # noqa: F811
@@ -119,13 +120,13 @@ def test_sandboxes_share_demo_bot_and_route_by_link(demo, monkeypatch) -> None: 
         pa = (
             db.query(Participant)
             .join(Program)
-            .filter(Program.organization_id == a.id, Participant.external_id == "С-104")
+            .filter(Program.organization_id == a.id, Participant.external_id == "СТ-006")
             .one()
         )
         pb = (
             db.query(Participant)
             .join(Program)
-            .filter(Program.organization_id == b.id, Participant.external_id == "С-104")
+            .filter(Program.organization_id == b.id, Participant.external_id == "СТ-006")
             .one()
         )
         la, lb = telegram.link_for(db, pa), telegram.link_for(db, pb)
@@ -152,7 +153,7 @@ def test_yandex_answers_page_maps_columns_to_values() -> None:
             {
                 "id": 77,
                 "data": [
-                    {"value": "С-104"},
+                    {"value": "СТ-006"},
                     {"value": 7},
                     {"value": [{"label": "нагрузка"}, {"label": "сроки"}]},
                 ],
@@ -161,7 +162,7 @@ def test_yandex_answers_page_maps_columns_to_values() -> None:
         "next": {"next_url": None},
     }
     assert parse_yandex_page(page) == [
-        ("77", {"Ваш ID": "С-104", "Насколько понятны задачи?": 7, "Что мешает?": "нагрузка, сроки"})
+        ("77", {"Ваш ID": "СТ-006", "Насколько понятны задачи?": 7, "Что мешает?": "нагрузка, сроки"})
     ]
 
 
@@ -187,29 +188,30 @@ def test_yandex_form_id_from_link(demo, monkeypatch) -> None:  # noqa: F811
 def test_mail_body_plain_and_json() -> None:
     from app.services.forms.connectors import parse_mail_body
 
-    plain = "Ваш ID:\nС-104\nНасколько понятны задачи, которые вы получаете?: 7\nКомментарий: что получается и что мешает?\nНе хватает времени"
+    plain = "Ваш ID:\nСТ-006\nНасколько понятны задачи, которые вы получаете?: 7\nКомментарий: что получается и что мешает?\nНе хватает времени"
     f = parse_mail_body(plain)
-    assert f["Ваш ID"] == "С-104" and f["Насколько понятны задачи, которые вы получаете?"] == "7"
+    assert f["Ваш ID"] == "СТ-006" and f["Насколько понятны задачи, которые вы получаете?"] == "7"
     assert f["Комментарий"].startswith("что получается") or "Не хватает времени" in " ".join(f.values())
-    js = 'Ответ формы {"Ваш ID": "С-104", "Комфортен ли для вас объём задач?": "5"}'
-    assert parse_mail_body(js) == {"Ваш ID": "С-104", "Комфортен ли для вас объём задач?": "5"}
+    js = 'Ответ формы {"Ваш ID": "СТ-006", "Комфортен ли для вас объём задач?": "5"}'
+    assert parse_mail_body(js) == {"Ваш ID": "СТ-006", "Комфортен ли для вас объём задач?": "5"}
 
 
 def test_mail_answers_reach_participant(demo, monkeypatch) -> None:  # noqa: F811
     from app.services.forms import connectors
 
-    qs = [
-        "Насколько понятны задачи, которые вы получаете?",
-        "Можете ли вы выполнять задачи без помощи наставника?",
-        "Хватает ли вам времени и внимания наставника?",
-        "Комфортен ли для вас объём задач?",
-        "Получаете ли вы обратную связь по своей работе?",
-        "Насколько вам понятны ваши перспективы после стажировки?",
+    qs = [  # формулировки утверждений из анкеты стажёра МГТС
+        "Мне понятно, каких результатов от меня ожидают по текущим задачам.",
+        "Я получаю достаточно поддержки и обратной связи от наставника.",
+        "Моя текущая загрузка комфортна и позволяет качественно выполнять задачи.",
+        "Мне интересны задачи, над которыми я работаю.",
+        "Я чувствую, что в процессе стажировки развиваю полезные для себя навыки.",
+        "Мне комфортно взаимодействовать с командой.",
+        "В целом я доволен тем, как проходит моя стажировка.",
     ]
     body = (
-        "Ваш ID: С-104\n"
+        "Ваш ID: СТ-006\n"
         + "\n".join(f"{q}: 4" for q in qs)
-        + "\nКомментарий: что получается и что мешает?: Нагрузка большая"
+        + "\nКонтрольный период: Месяц 6\nСложности за период: Нагрузка большая"
     )
     monkeypatch.setattr(
         connectors, "fetch_mail", lambda cfg, limit=50: [("<m1@ya>", connectors.parse_mail_body(body))]
@@ -219,7 +221,7 @@ def test_mail_answers_reach_participant(demo, monkeypatch) -> None:  # noqa: F81
         cfg = {"email": "x@yandex.ru", "password": "p", "connected": True}
         assert connectors.poll(db, prog.id, "yandex_mail", cfg) == 1
         assert connectors.poll(db, prog.id, "yandex_mail", cfg) == 0  # письмо не загружается дважды
-        part = db.query(Participant).filter(Participant.external_id == "С-104").one()
+        part = db.query(Participant).filter(Participant.external_id == "СТ-006").one()
         assert (
             db.query(Response)
             .filter(Response.participant_id == part.id, Response.source == "yandex_mail")
@@ -232,7 +234,7 @@ def test_mail_with_question_descriptions_and_footer() -> None:
     from app.services.forms.connectors import parse_mail_body
 
     body = (
-        "Пульс: ответ\nВаш ID: С-104\nНасколько понятны задачи, которые вы получаете?:\n"
+        "Пульс: ответ\nВаш ID: СТ-006\nНасколько понятны задачи, которые вы получаете?:\n"
         '"Где 1 - совсем непонятны, а 10  - все задачи понятны.": 9\n'
         "Комментарий: что получается и что мешает?:\nНет ответа\n"
         "Это письмо содержит ответы на опрос, созданный пользователем Yandex Forms."
@@ -250,15 +252,16 @@ def test_form_answer_reaches_every_live_demo_copy(demo) -> None:  # noqa: F811
     from app.services import sandbox
     from app.services.forms import connectors
 
-    qs = [
-        "Насколько понятны задачи, которые вы получаете?",
-        "Можете ли вы выполнять задачи без помощи наставника?",
-        "Хватает ли вам времени и внимания наставника?",
-        "Комфортен ли для вас объём задач?",
-        "Получаете ли вы обратную связь по своей работе?",
-        "Насколько вам понятны ваши перспективы после стажировки?",
+    qs = [  # названия показателей, как столбцы в выгрузке МГТС
+        "Понятность задач",
+        "Поддержка и обратная связь наставника",
+        "Комфортность нагрузки",
+        "Интерес к задачам",
+        "Профессиональное развитие",
+        "Взаимодействие с командой",
+        "Общая удовлетворенность стажировкой",
     ]
-    fields = {"Ваш ID": "С-104"} | {q: "5" for q in qs}
+    fields = {"Ваш ID": "СТ-006"} | {q: "5" for q in qs}
     with SessionLocal() as db:
         tmpl = integrations.demo_template(db)
         copies = [sandbox.build(db, use_llm=False) for _ in range(2)]
@@ -276,7 +279,7 @@ def test_form_answer_reaches_every_live_demo_copy(demo) -> None:  # noqa: F811
                 .join(Program)
                 .filter(
                     Program.organization_id == org,
-                    Participant.external_id == "С-104",
+                    Participant.external_id == "СТ-006",
                     Response.source == "yandex",
                 )
                 .count()
@@ -292,7 +295,7 @@ def test_yandex_webhook_only_mode(demo) -> None:  # noqa: F811
     ).json()
     assert r["connected"] and "вебхук" in r["info"] and "token=" in r["webhook"]
     secret = r["webhook"].split("token=")[1]
-    body = "Ваш ID: С-104" + chr(10) + "Комфортен ли для вас объём задач?: 6"
+    body = "Ваш ID: СТ-006" + chr(10) + "Комфортен ли для вас объём задач?: 6"
     resp = hr.post(
         f"/api/forms/yandex/webhook?token={secret}",
         content=body.encode(),
@@ -338,25 +341,58 @@ def test_google_sheet_links() -> None:
 def test_google_sheet_rows_reach_participant(demo, monkeypatch) -> None:  # noqa: F811
     from app.services.forms import connectors
 
-    qs = [
-        "Насколько понятны задачи, которые вы получаете?",
-        "Можете ли вы выполнять задачи без помощи наставника?",
-        "Хватает ли вам времени и внимания наставника?",
-        "Комфортен ли для вас объём задач?",
-        "Получаете ли вы обратную связь по своей работе?",
-        "Насколько вам понятны ваши перспективы после стажировки?",
+    qs = [  # названия показателей, как столбцы в выгрузке МГТС
+        "Понятность задач",
+        "Поддержка и обратная связь наставника",
+        "Комфортность нагрузки",
+        "Интерес к задачам",
+        "Профессиональное развитие",
+        "Взаимодействие с командой",
+        "Общая удовлетворенность стажировкой",
     ]
-    heads = ["Отметка времени", "Ваш ID", *qs, "Комментарий: что получается и что мешает?"]
-    rows = [["24.11.2026 21:00:00", "С-104", "6", "6", "5", "4", "7", "5", "Мало времени на вопросы"]]
-    monkeypatch.setattr(connectors, "fetch_google_sheet", lambda cfg: (heads, rows))
+    heads = [
+        "Отметка времени",
+        "ID стажера",
+        "Подразделение / направление стажировки",
+        "Контрольный период",
+        *qs,
+    ]
+    heads += ["Сложности за период", "Что мешает работать и развиваться"]
+    rows = [["24.11.2026 21:00:00", "СТ-006", "IT", "Месяц 6", "4", "3", "4", "5", "4", "4", "4"]]
+    rows[0] += ["Мало времени на вопросы", "Ничего не мешает"]
+    mheads = ["Отметка времени", "ID наставника", "ID стажера", "Контрольный период"]
+    mheads += [
+        "Понимание задач и ожиданий",
+        "Качество выполнения задач",
+        "Самостоятельность",
+        "Соблюдение сроков и организация работы",
+        "Вовлеченность и инициативность",
+        "Взаимодействие с наставником и командой",
+    ]
+    mrows = [["24.11.2026 21:05:00", "Н-006", "СТ-006", "Месяц 6", "2", "2", "3", "2", "3", "2"]]
+    sheets = {"intern": (heads, rows), "mentor": (mheads, mrows)}
+    monkeypatch.setattr(
+        connectors,
+        "fetch_google_sheet",
+        lambda cfg: sheets["mentor" if "/m/" in cfg["sheet_url"] else "intern"],
+    )
     with SessionLocal() as db:
         prog = db.query(Program).first()
-        cfg = {"sheet_url": "https://docs.google.com/spreadsheets/d/x/edit", "connected": True}
-        assert connectors.poll(db, prog.id, "google", cfg) == 1
+        cfg = {
+            "sheet_url": "https://docs.google.com/spreadsheets/d/x/edit",
+            "sheet_url_mentor": "https://docs.google.com/spreadsheets/d/m/edit",
+            "connected": True,
+        }
+        assert connectors.poll(db, prog.id, "google", cfg) == 2  # отдельные формы стажёра и наставника
         assert connectors.poll(db, prog.id, "google", cfg) == 0
-        part = db.query(Participant).filter(Participant.external_id == "С-104").one()
+        mentor = db.query(Participant).filter(Participant.external_id == "Н-006").one()
+        assert (
+            db.query(Response).filter(Response.participant_id == mentor.id, Response.period == 6).count() == 1
+        )
+        part = db.query(Participant).filter(Participant.external_id == "СТ-006").one()
         r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "google").one()
-        assert any(a.text == "Мало времени на вопросы" for a in r.answers)
+        assert sorted(a.text for a in r.answers if a.text) == ["Мало времени на вопросы", "Ничего не мешает"]
+        assert r.period == 6
         assert not any("2026" in (a.value_raw or "") + (a.text or "") for a in r.answers)
 
 

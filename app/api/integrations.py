@@ -17,7 +17,11 @@ def _org(user: User) -> int:
 
 
 def _base(request: Request) -> str:
-    return str(request.base_url).rstrip("/")
+    """Адрес сервера для вебхука. За туннелем без X-Forwarded-Proto снаружи всё равно https."""
+    url = request.base_url
+    if url.scheme == "http" and url.hostname not in ("localhost", "127.0.0.1", "testserver"):
+        url = url.replace(scheme="https")
+    return str(url).rstrip("/")
 
 
 @router.get("/integrations")

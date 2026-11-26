@@ -4,7 +4,7 @@
   const { api, esc, toast } = window.Pulse;
   const box = document.getElementById("page");
   let tab = new URLSearchParams(location.search).get("tab") || "send", M = null, Q = null, S = null, side = "intern", sug = null;
-  const TOPICS = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Поддержка", load: "Нагрузка", feedback: "Обратная связь", growth: "Перспективы" };
+  const TOPICS = { tasks: "Понимание задач", auto: "Самостоятельность", support: "Взаимодействие с командой", load: "Нагрузка и сроки", feedback: "Поддержка и обратная связь", growth: "Профессиональное развитие", engage: "Интерес и вовлечённость", overall: "Общая оценка" };
   const CH = [["email", "Письмо на рабочую почту", "Ссылка на анкету, вход без пароля", "smtp"], ["tg", "Telegram-бот", "Анкета прямо в чате, оценки кнопками", "telegram"], ["site", "Уведомление на сайте", "Колокольчик и карточка «Заполнить анкету»", null]];
   const CH_SHORT = { email: "почта", tg: "Telegram", site: "сайт" };
 

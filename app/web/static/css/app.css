@@ -644,3 +644,6 @@ img, video, canvas, svg { max-width: 100%; }
 @media (max-width: 360px) { #f-month + .row span { font-size: 12px; letter-spacing: -0.01em; } #f-month + .row { gap: 2px; } }
 /* список пар закреплён сбоку только там, где колонки стоят рядом */
 @media (min-width: 1024px) { .pair-list { position: sticky; top: 80px; } }
+
+/* Матрица динамики: на телефоне без ID стажёра, чтобы шесть месяцев влезли без прокрутки */
+@media (max-width: 767px) { .trend-id { display: none; } }

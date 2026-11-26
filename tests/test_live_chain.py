@@ -39,7 +39,7 @@ def mentor_answers(c: TestClient, value: str = "3") -> dict:
 def test_mentor_submits_and_dashboard_gets_before_after_fast(demo) -> None:
     c = login("mentor@pulse.demo")
     me = c.get("/api/me").json()
-    assert me["participant"]["external_id"] == "Н-204" and me["submitted"] is False and me["period"] == 6
+    assert me["participant"]["external_id"] == "Н-006" and me["submitted"] is False and me["period"] == 6
     t0 = time.monotonic()
     r = c.post(
         "/api/responses",
@@ -50,13 +50,13 @@ def test_mentor_submits_and_dashboard_gets_before_after_fast(demo) -> None:
     assert r.status_code == 200, r.text
     assert elapsed < 5
     ev = [d for e, d in demo if e == "pair_updated"][-1]
-    assert ev["pair"] == "П-04" and ev["who"] == "Н-204"
-    assert ev["before"]["index"] is not None and ev["after"]["index"] is not None
+    assert ev["pair"] == "П-06" and ev["who"] == "Н-006" and ev["period"] == 6
+    assert ev["before"]["index"] is None and ev["after"]["index"] is not None  # тестовая пара: первая анкета
     assert "→" in ev["message"]
     assert "missing" not in ev["after"]["signals"]
     hr = login("hr@pulse.demo")
     n = hr.get("/api/notifications").json()
-    assert n["unread"] >= 1 and "Н-204" in n["items"][0]["title"]
+    assert n["unread"] >= 1 and "Н-006" in n["items"][0]["title"]
 
 
 def test_incomplete_answers_rejected(demo) -> None:
@@ -72,7 +72,7 @@ def test_sides_see_only_their_own(demo) -> None:
     me = c.get("/api/me").json()
     assert set(me) >= {"participant", "questionnaire", "bars", "talk"}
     text = str(me)
-    assert "Н-204" not in text.replace(me.get("other") or "", "") or me["other"] == "Н-204"
+    assert "Н-006" not in text.replace(me.get("other") or "", "") or me["other"] == "Н-006"
     assert "Нет времени" not in text and "свои объекты" not in text  # комментариев наставника нет
     assert c.get("/api/pairs").status_code == 403
     assert c.get("/api/events").status_code == 403
@@ -81,20 +81,20 @@ def test_sides_see_only_their_own(demo) -> None:
 def test_survey_link_without_login(demo) -> None:
     hr = login("hr@pulse.demo")
     links = {x["external_id"]: x["link"] for x in hr.get("/api/survey-links").json()}
-    token = links["С-101"].rsplit("/", 1)[1]
+    token = links["СТ-001"].rsplit("/", 1)[1]
     anon = TestClient(app)
     form = anon.get(f"/api/survey/{token}").json()
-    answers = {q["id"]: "8" for q in form["questionnaire"]["questions"] if q["qtype"] != "text"}
+    answers = {q["id"]: "4" for q in form["questionnaire"]["questions"] if q["qtype"] != "text"}
     r = anon.post(f"/api/survey/{token}", json={"answers": answers, "comment": ""})
     assert r.status_code == 200
-    assert any(d["who"] == "С-101" for e, d in demo if e == "pair_updated")
+    assert any(d["who"] == "СТ-001" for e, d in demo if e == "pair_updated")
     assert anon.get("/api/survey/bad-token").status_code == 404
 
 
 def test_demo_button_and_yandex_webhook(demo, monkeypatch) -> None:
     hr = login("hr@pulse.demo")
     r = hr.post("/api/demo/test-response", headers=csrf_headers(hr))
-    assert r.status_code == 200 and r.json()["who"] == "Н-204"
+    assert r.status_code == 200 and r.json()["who"] == "Н-006"
     monkeypatch.setenv("YANDEX_WEBHOOK_SECRET", "s3cret")
     get_settings.cache_clear()
     with SessionLocal() as db:
@@ -104,16 +104,93 @@ def test_demo_button_and_yandex_webhook(demo, monkeypatch) -> None:
             .one()
         )
         qs = db.query(Question).filter(Question.questionnaire_id == qn.id, Question.qtype != "text").all()
-        fields = {"Ваш ID": "С-103"} | {q.text: "9" for q in qs} | {"Комментарий": "Стало спокойнее, спасибо"}
-        assert db.query(Participant).filter(Participant.external_id == "С-103").count() == 1
+        fields = (
+            {"Ваш ID": "СТ-003"} | {q.text: "5" for q in qs} | {"Комментарий": "Стало спокойнее, спасибо"}
+        )
+        assert db.query(Participant).filter(Participant.external_id == "СТ-003").count() == 1
     anon = TestClient(app)
     assert anon.post("/api/forms/yandex/webhook?token=bad", json=fields).status_code == 403
     r = anon.post("/api/forms/yandex/webhook?token=s3cret", json=fields)
     assert r.status_code == 200 and r.json()["ok"], r.text
     with SessionLocal() as db:  # доставка прошла в фоне после ответа
-        part = db.query(Participant).filter(Participant.external_id == "С-103").one()
+        part = db.query(Participant).filter(Participant.external_id == "СТ-003").one()
         assert (
             db.query(Response).filter(Response.participant_id == part.id, Response.source == "yandex").count()
             == 1
         )
     get_settings.cache_clear()
+
+
+def test_mgts_form_fields_bind_to_intern_and_period(demo) -> None:
+    """Ответ формы с полями как в анкете МГТС: ID, подразделение, период, показатели, два открытых вопроса."""
+    from app.services.forms.external import ingest_external
+
+    with SessionLocal() as db:
+        from app.db.models import Answer, Program
+
+        prog = db.query(Program).first()
+        fields = {
+            "ID наставника": "Н-005",
+            "ID стажера": "СТ-005",
+            "Подразделение / направление стажировки": "IT",
+            "Контрольный период": "Месяц 6",
+            "Понимание задач и ожиданий": "2",
+            "Качество выполнения задач": "3",
+            "Самостоятельность": "2",
+            "Соблюдение сроков и организация работы": "2",
+            "Вовлеченность и инициативность": "4",
+            "Взаимодействие с наставником и командой": "3",
+            "Комментарий о работе за период": "Сорвал два срока подряд, перестал задавать вопросы.",
+            "Сложности / ситуации для внимания": "Нужна встреча с HR.",
+        }
+        ev = ingest_external(db, prog, fields, "yandex")
+        assert ev["who"] == "Н-005" and ev["pair"] == "П-05" and ev["period"] == 6
+        assert "low" in ev["after"]["signals"] and ev["after"]["index"] < ev["before"]["index"]
+        part = db.query(Participant).filter(Participant.external_id == "Н-005").one()
+        resp = db.query(Response).filter(Response.participant_id == part.id, Response.period == 6).one()
+        texts = [
+            a.text for a in db.query(Answer).filter(Answer.response_id == resp.id, Answer.text.isnot(None))
+        ]
+        assert len(texts) == 2 and resp.source == "yandex"
+
+
+def test_real_yandex_forms_with_matrix_scales(demo) -> None:  # noqa: F811
+    """Подписи как в формах МГТС на Яндексе: формулировки вопросов, шкалы — матрица «От 1 до 5»."""
+    from app.services.forms.connectors import parse_yandex_answer
+    from app.services.forms.external import ingest_external
+
+    row = "От 1 до 5"
+    qs = [
+        (
+            "Мне понятно, каких результатов от меня ожидают по текущим задачам.",
+            [[{"text": row}, {"text": "2"}]],
+        ),
+        (
+            "Я получаю достаточно поддержки и обратной связи от наставника.",
+            [{"row": row, "col": {"text": "2"}}],
+        ),
+        ("Моя текущая загрузка комфортна и позволяет качественно выполнять задачи.\n", {row: "3"}),
+        ("Мне интересны задачи, над которыми я работаю.\n", "От 1 до 5: 4"),
+        ("Я чувствую, что в процессе стажировки развиваю полезные для себя навыки.", "3"),
+        ("Мне комфортно взаимодействовать с командой.", [[{"text": row}, {"text": "4"}]]),
+        ("В целом я доволен тем, как проходит моя стажировка.", [[{"text": row}, {"text": "3"}]]),
+    ]
+    data = {
+        "a1": {"question": {"label": "Ваш ID"}, "value": "СТ-006"},
+        "a2": {"question": {"label": "Подразделение / направление стажировки"}, "value": "IT"},
+        "a3": {"question": {"label": "Контрольный период"}, "value": "Месяц 6"},
+    }
+    data |= {f"q{i}": {"question": {"label": q}, "value": v} for i, (q, v) in enumerate(qs)}
+    data["t1"] = {
+        "question": {"label": "С какими сложностями вы столкнулись за последний период стажировки?"},
+        "value": "Наставник редко отвечает",
+    }
+    _, fields = parse_yandex_answer({"id": 1, "data": data})
+    with SessionLocal() as db:
+        from app.db.models import Program
+
+        ev = ingest_external(db, db.query(Program).first(), fields, "yandex")
+        assert ev["who"] == "СТ-006" and ev["period"] == 6
+        part = db.query(Participant).filter(Participant.external_id == "СТ-006").one()
+        resp = db.query(Response).filter(Response.participant_id == part.id, Response.period == 6).one()
+        assert sorted(a.value_raw for a in resp.answers if a.value_raw) == ["2", "2", "3", "3", "3", "4", "4"]

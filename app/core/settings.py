@@ -81,6 +81,12 @@ DEFAULT_ANALYTICS: dict[str, float] = {
     "alert_health": 50,
     "alert_delta": 0.40,
     "alert_days": 3,
+    "low_critical": 0.25,  # 1–2 из 5: критичная оценка
+    "gap_threshold": 0.50,  # 2+ балла из 5 между стажёром и наставником по одной теме
+    "sharp_drop": 0.50,  # падение на 2+ балла из 5 за месяц
+    "repeat_anxiety": 0.30,  # тревожность комментария, при которой он считается жалобой
+    "w_critical": 8,
+    "w_repeat": 6,
 }
 
 
