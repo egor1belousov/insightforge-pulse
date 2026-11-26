@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.settings import get_settings
 from app.db.models import AppSetting
 
-OPTIONAL = {"org_id", "sheet_url_mentor"}
+OPTIONAL = {"org_id", "sheet_url_mentor", "form_id_mentor"}
 FORM_ID_RE = re.compile(r"[a-fA-F\d]{24}")
 
 KINDS: dict[str, dict] = {
@@ -32,7 +32,13 @@ KINDS: dict[str, dict] = {
                 True,
                 "oauth.yandex.ru → приложение с доступом «Просмотр настроек форм (forms:read)»",
             ),
-            ("form_id", "ID формы", False, "24 символа из адреса формы, можно вставить ссылку целиком"),
+            ("form_id", "Форма стажёра", False, "Ссылка на форму или 24 символа из её адреса"),
+            (
+                "form_id_mentor",
+                "Форма наставника",
+                False,
+                "Вторая форма, если анкеты сторон разные. Вебхук в обеих формах — один и тот же адрес",
+            ),
             (
                 "org_id",
                 "ID организации",
@@ -313,7 +319,7 @@ def connect(db: Session, org: int, kind: str, data: dict) -> dict:
             v = old.get(f, "")
         if not v and f == "port":
             v = "587"
-        if f == "form_id" and kind == "yandex" and v:
+        if f in ("form_id", "form_id_mentor") and kind == "yandex" and v:
             m = FORM_ID_RE.search(v)
             if not m:
                 raise CheckError("ID формы — 24 символа из адреса формы (буквы a–f и цифры).")

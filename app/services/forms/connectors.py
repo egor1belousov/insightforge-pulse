@@ -111,7 +111,15 @@ def parse_yandex_page(payload: dict) -> list[tuple[str, dict]]:
 
 
 def fetch_yandex(cfg: dict, pages: int = 20) -> list[tuple[str, dict]]:
-    """Ответы Яндекс Формы по API, с переходом по страницам next.next_url."""
+    """Ответы Яндекс Форм по API (формы стажёра и наставника), с переходом по страницам."""
+    out: list[tuple[str, dict]] = []
+    for form in (cfg.get("form_id"), cfg.get("form_id_mentor")):
+        if form:
+            out += _fetch_yandex_form({**cfg, "form_id": form}, pages)
+    return out
+
+
+def _fetch_yandex_form(cfg: dict, pages: int) -> list[tuple[str, dict]]:
     s = get_settings()
     url = f"{s.yandex_forms_api}/surveys/{cfg['form_id']}/answers?page_size=100"
     out: list[tuple[str, dict]] = []

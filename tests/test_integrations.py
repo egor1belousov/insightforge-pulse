@@ -100,7 +100,9 @@ def test_telegram_links_and_survey_in_chat(demo, monkeypatch) -> None:  # noqa: 
             telegram.handle(db, org, "t", {"message": {"chat": {"id": 77}, "text": text}})
         assert "Спасибо" in sent[-1]["text"]
         r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "telegram").one()
-        assert any(a.text for a in r.answers)
+        texts = {a.question_id: a.text for a in r.answers if a.text}
+        assert len(texts) == 2 and None not in texts  # каждый открытый вопрос — отдельный ответ
+        assert any("о работе стажёра СТ-006" in (m.get("text") or "") for m in sent)
 
 
 def test_sandboxes_share_demo_bot_and_route_by_link(demo, monkeypatch) -> None:  # noqa: F811
