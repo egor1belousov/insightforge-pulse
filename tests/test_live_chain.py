@@ -152,3 +152,45 @@ def test_mgts_form_fields_bind_to_intern_and_period(demo) -> None:
             a.text for a in db.query(Answer).filter(Answer.response_id == resp.id, Answer.text.isnot(None))
         ]
         assert len(texts) == 2 and resp.source == "yandex"
+
+
+def test_real_yandex_forms_with_matrix_scales(demo) -> None:  # noqa: F811
+    """Подписи как в формах МГТС на Яндексе: формулировки вопросов, шкалы — матрица «От 1 до 5»."""
+    from app.services.forms.connectors import parse_yandex_answer
+    from app.services.forms.external import ingest_external
+
+    row = "От 1 до 5"
+    qs = [
+        (
+            "Мне понятно, каких результатов от меня ожидают по текущим задачам.",
+            [[{"text": row}, {"text": "2"}]],
+        ),
+        (
+            "Я получаю достаточно поддержки и обратной связи от наставника.",
+            [{"row": row, "col": {"text": "2"}}],
+        ),
+        ("Моя текущая загрузка комфортна и позволяет качественно выполнять задачи.\n", {row: "3"}),
+        ("Мне интересны задачи, над которыми я работаю.\n", "От 1 до 5: 4"),
+        ("Я чувствую, что в процессе стажировки развиваю полезные для себя навыки.", "3"),
+        ("Мне комфортно взаимодействовать с командой.", [[{"text": row}, {"text": "4"}]]),
+        ("В целом я доволен тем, как проходит моя стажировка.", [[{"text": row}, {"text": "3"}]]),
+    ]
+    data = {
+        "a1": {"question": {"label": "Ваш ID"}, "value": "СТ-006"},
+        "a2": {"question": {"label": "Подразделение / направление стажировки"}, "value": "IT"},
+        "a3": {"question": {"label": "Контрольный период"}, "value": "Месяц 6"},
+    }
+    data |= {f"q{i}": {"question": {"label": q}, "value": v} for i, (q, v) in enumerate(qs)}
+    data["t1"] = {
+        "question": {"label": "С какими сложностями вы столкнулись за последний период стажировки?"},
+        "value": "Наставник редко отвечает",
+    }
+    _, fields = parse_yandex_answer({"id": 1, "data": data})
+    with SessionLocal() as db:
+        from app.db.models import Program
+
+        ev = ingest_external(db, db.query(Program).first(), fields, "yandex")
+        assert ev["who"] == "СТ-006" and ev["period"] == 6
+        part = db.query(Participant).filter(Participant.external_id == "СТ-006").one()
+        resp = db.query(Response).filter(Response.participant_id == part.id, Response.period == 6).one()
+        assert sorted(a.value_raw for a in resp.answers if a.value_raw) == ["2", "2", "3", "3", "3", "4", "4"]

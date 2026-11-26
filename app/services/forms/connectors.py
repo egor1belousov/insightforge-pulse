@@ -54,6 +54,41 @@ def _mark(db, program: Program, key: str, ids: set[str]) -> None:
     db.commit()
 
 
+# строка матрицы «От 1 до 5» с выбранным столбцом, когда ответ пришёл текстом: «От 1 до 5: 4»
+MATRIX_TEXT_RE = re.compile(r"^\s*от\s*\d+\s*до\s*\d+\s*[:—–\-=]?\s*(\d+)\s*$", re.I)
+
+
+def _cell_text(x: Any) -> str:
+    if isinstance(x, dict):
+        return str(x.get("text") or x.get("label") or x.get("value") or x.get("key") or "")
+    return str(x)
+
+
+def matrix_value(v: Any) -> Any:
+    """Ответ на вопрос-матрицу с одной строкой («От 1 до 5») → выбранный столбец. Иначе значение без изменений.
+
+    Яндекс присылает матрицу по-разному: [[строка, столбец]], [{"row": …, "col": …}],
+    {"От 1 до 5": "4"} или текстом «От 1 до 5: 4».
+    """
+    if isinstance(v, str):
+        m = MATRIX_TEXT_RE.match(v)
+        return m.group(1) if m else v
+    if isinstance(v, dict):
+        for k in ("col", "column", "choice"):
+            if k in v:
+                return _cell_text(v[k])
+        if len(v) == 1 and not {"text", "label", "value", "key"} & set(v):
+            return matrix_value(next(iter(v.values())))
+        return v
+    if isinstance(v, list) and len(v) == 1:
+        x = v[0]
+        if isinstance(x, (list, tuple)) and len(x) == 2:
+            return _cell_text(x[1])
+        if isinstance(x, dict) and ({"col", "column", "choice"} & set(x)):
+            return matrix_value(x)
+    return v
+
+
 def parse_yandex_answer(item: dict) -> tuple[str, dict[str, Any]]:
     """Ответ Яндекс Формы → (id, {подпись поля: значение}). Поддерживает формат API и вебхука."""
     aid = str(item.get("id") or item.get("answer_id") or json.dumps(item, sort_keys=True)[:64])
@@ -67,23 +102,24 @@ def parse_yandex_answer(item: dict) -> tuple[str, dict[str, Any]]:
                     if isinstance(v.get("question"), dict)
                     else v.get("label") or k
                 )
-                val = v.get("value")
+                val = matrix_value(v.get("value"))
                 if isinstance(val, list):
                     val = ", ".join(str(x.get("text", x)) if isinstance(x, dict) else str(x) for x in val)
-                fields[str(label or k)] = val
+                fields[str(label or k).strip()] = val
             else:
-                fields[str(k)] = v
+                fields[str(k).strip()] = matrix_value(v)
     elif isinstance(data, list):
         for d in data:
             label = d.get("label") or (d.get("question") or {}).get("label") or d.get("key") or d.get("id")
-            val = d.get("value")
+            val = matrix_value(d.get("value"))
             if isinstance(val, list):
                 val = ", ".join(str(x.get("text", x)) if isinstance(x, dict) else str(x) for x in val)
-            fields[str(label)] = val
+            fields[str(label).strip()] = val
     return aid, fields
 
 
 def _yandex_value(v: Any) -> Any:
+    v = matrix_value(v)
     if isinstance(v, list):
         return ", ".join(
             str(x.get("label") or x.get("text") or x) if isinstance(x, dict) else str(x) for x in v
