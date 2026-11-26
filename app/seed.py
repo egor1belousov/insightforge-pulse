@@ -1,11 +1,14 @@
 """Демо-данные: `python -m app.seed [--reset]`.
 
-Создаёт организацию, программу, демо-аккаунты всех ролей. На следующих этапах
-сюда добавляются анкеты и синтетические ответы.
+Создаёт организацию, программу, демо-аккаунты всех ролей и загружает историю кейса МГТС
+(`data/mgts`: две таблицы ответов и две анкеты Word) через обычный загрузчик.
 """
 
 import argparse
+import copy
 from datetime import date
+from functools import lru_cache
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -16,23 +19,20 @@ from app.db.session import Base, SessionLocal, engine
 from app.services.accounts import ensure_topics
 from app.services.analytics.service import recompute_program
 from app.services.ingest.persist import persist
-from app.services.ingest.pipeline import Record
+from app.services.ingest.pipeline import Record, analyze, build_records
 from app.services.learning import split_sections
-from ml.synth import COMMENT_INTERN, COMMENT_MENTOR, INTERN_QUESTIONS, MENTOR_QUESTIONS, PAIRS, to_scale
 
-SCALE = (1, 10)
-MISSING = {("mentor", "Н-204", 6)}
-EXTRA_PEOPLE = [
-    ("С-106", "intern", "Сеть ШПД"),
-    ("Н-206", "mentor", "Сеть ШПД"),
-    ("Н-207", "mentor", "Монтаж"),
-]
+CASE_DIR = Path(__file__).resolve().parent.parent / "data" / "mgts"
+# Тестовая пара для живой анкеты: в истории кейса её нет, ответы заводятся на защите через формы.
+DEMO_INTERN = "СТ-006"
+DEMO_MENTOR = "Н-006"
+DEMO_DEPT = "IT"
 
 DEMO_USERS = [
     ("hr@pulse.demo", "Анна Смирнова", "hr", None),
     ("lead@pulse.demo", "Олег Петров", "lead", None),
-    ("mentor@pulse.demo", "Наставник Н-204", "mentor", "Н-204"),
-    ("intern@pulse.demo", "Стажёр С-104", "intern", "С-104"),
+    ("mentor@pulse.demo", f"Наставник {DEMO_MENTOR}", "mentor", DEMO_MENTOR),
+    ("intern@pulse.demo", f"Стажёр {DEMO_INTERN}", "intern", DEMO_INTERN),
 ]
 
 
@@ -72,95 +72,37 @@ def seed_accounts(db: Session) -> Program:
     return create_org(db)
 
 
+@lru_cache(maxsize=1)
+def _case() -> tuple[dict, list[Record]]:
+    """Исходная история кейса МГТС из `data/mgts`: распознаётся тем же загрузчиком, что и у HR."""
+    files = sorted(CASE_DIR.iterdir())
+    schema = analyze(files)
+    for qn in schema["questionnaires"].values():
+        qn["title"] = qn.get("title") or ""
+    records = build_records(files, schema)
+    schema["pairs"].append(
+        {"intern": DEMO_INTERN, "mentor": DEMO_MENTOR, "conf": 1.0, "how": "тестовая пара"}
+    )
+    return schema, records
+
+
 def demo_schema() -> dict:
-    """Анкеты демо-программы в формате схемы загрузки."""
-    lo, hi = SCALE
-
-    def qs(letter: str, items: list[tuple[str, str]], comment: str, other: str) -> list[dict]:
-        out = [
-            {
-                "key": f"{letter}{i}",
-                "text": text,
-                "qtype": "scale",
-                "min": lo,
-                "max": hi,
-                "labels": [],
-                "options": [],
-                "code": None,
-                "inverse": False,
-                "topic": topic,
-                "topic_conf": 1.0,
-                "mirror": f"{other}{i}",
-                "mirror_conf": 1.0,
-            }
-            for i, (text, topic) in enumerate(items, 1)
-        ]
-        out.append(
-            {
-                "key": f"{letter}{len(items) + 1}",
-                "text": comment,
-                "qtype": "text",
-                "min": None,
-                "max": None,
-                "labels": [],
-                "options": [],
-                "code": None,
-                "inverse": False,
-                "topic": None,
-                "topic_conf": 1.0,
-                "mirror": None,
-                "mirror_conf": 0,
-            }
-        )
-        return out
-
-    return {
-        "questionnaires": {
-            "intern": {
-                "title": "Анкета стажёра",
-                "source": "builder",
-                "questions": qs("I", INTERN_QUESTIONS, COMMENT_INTERN, "M"),
-            },
-            "mentor": {
-                "title": "Анкета наставника",
-                "source": "builder",
-                "questions": qs("M", MENTOR_QUESTIONS, COMMENT_MENTOR, "I"),
-            },
-        },
-        "pairs": [{"intern": p.intern_id, "mentor": p.mentor_id, "conf": 1.0, "how": "демо"} for p in PAIRS],
-    }
+    """Анкеты и пары демо-программы в формате схемы загрузки (структура анкет МГТС)."""
+    return copy.deepcopy(_case()[0])
 
 
 def demo_records() -> list[Record]:
-    """Синтетические анкеты 5 пар за 6 месяцев."""
-    lo, hi = SCALE
-    recs = []
-    for p in PAIRS:
-        for side, ext, items, letter in (
-            ("intern", p.intern_id, INTERN_QUESTIONS, "I"),
-            ("mentor", p.mentor_id, MENTOR_QUESTIONS, "M"),
-        ):
-            for m in range(6):
-                if (side, ext, m + 1) in MISSING:
-                    continue
-                r = Record(side=side, ext_id=ext, period=m + 1, department=p.department)
-                for i, (_, topic) in enumerate(items, 1):
-                    raw = to_scale(p.value(side, topic, m), lo, hi)
-                    r.scores[f"{letter}{i}"] = (str(raw), round((raw - lo) / (hi - lo), 4))
-                text = p.comments.get(side, {}).get(m)
-                if text:
-                    r.texts[f"{letter}{len(items) + 1}"] = text
-                recs.append(r)
-    return recs
+    """Анкеты кейса: 5 пар, 6 контрольных периодов."""
+    return copy.deepcopy(_case()[1])
 
 
 def seed_demo_data(db: Session, prog: Program, use_llm: bool = True) -> None:
-    """Загружает демо-анкеты и пересчитывает аналитику."""
+    """Загружает историю кейса МГТС и пересчитывает аналитику."""
     persist(db, prog, demo_schema(), demo_records(), source="import")
-    have = {(p.side, p.external_id) for p in db.query(Participant).filter(Participant.program_id == prog.id)}
-    for ext, side, dept in EXTRA_PEOPLE:
-        if (side, ext) not in have:
-            db.add(Participant(program_id=prog.id, external_id=ext, side=side, department=dept))
+    for p in db.query(Participant).filter(
+        Participant.program_id == prog.id, Participant.external_id.in_((DEMO_INTERN, DEMO_MENTOR))
+    ):
+        p.department = p.department or DEMO_DEPT
     db.commit()
     recompute_program(db, prog, use_llm=use_llm)
 
@@ -169,10 +111,10 @@ COURSES = [
     (
         "Курс",
         "Как принимать обратную связь",
-        "auto",
+        "feedback",
         "intern",
         "15 мин",
-        "С-102",
+        "СТ-005",
         0,
         "Замечание — это не оценка личности, а описание работы. Получив замечание, запишите его своими словами и уточните критерий. "
         "Превратите каждое замечание в задачу с понятным результатом. Перед сдачей работы проверьте её по чек-листу. "
@@ -184,7 +126,7 @@ COURSES = [
         "load",
         "intern",
         "25 мин",
-        "С-103",
+        "СТ-004",
         60,
         "Оценивайте сроки задачи вместе с наставником в начале работы. Если задача занимает вдвое больше времени, чем планировали, скажите об этом сразу. "
         "Фраза «не успеваю» — нормальный рабочий сигнал, а не признак слабости. Список приоритетов на день составляется утром. "
@@ -196,7 +138,7 @@ COURSES = [
         "tasks",
         "intern",
         "60 мин",
-        "С-104",
+        DEMO_INTERN,
         35,
         "Перед сваркой с волокна снимают защитное покрытие, очищают его спиртом и выполняют скол скалывателем. "
         "Качество сварного соединения проверяют рефлектометром. Если на объекте нет схемы разводки, работу останавливают и связываются с наставником. "
@@ -208,7 +150,7 @@ COURSES = [
         "support",
         "mentor",
         "5 мин",
-        "Н-204",
+        DEMO_MENTOR,
         0,
         "Договоритесь с руководителем о фиксированном часе наставничества в неделю. Делегируйте стажёру задачи, которые он уже умеет делать сам. "
         "Если объекты не позволяют уделять время, скажите HR — это нормальный запрос.",
@@ -219,7 +161,7 @@ COURSES = [
         "growth",
         "intern",
         "10 мин",
-        "С-105",
+        "СТ-002",
         0,
         "После стажировки стажёр может перейти в штат подразделения. Решение о предложении принимает руководитель вместе с HR. "
         "Критерии аттестации сообщаются не позднее чем за месяц до окончания программы.",
@@ -302,7 +244,8 @@ def seed_learning(db: Session, prog: Program) -> None:
         t.questions.append(TestQuestion(text=text, options=opts, correct=ok, explanation=expl))
     db.add(t)
     db.flush()
-    db.add(Assignment(participant_id=parts["С-104"].id, test_id=t.id, reason="по курсу"))
+    for ext in ("СТ-001", DEMO_INTERN):  # тест по курсу: у стажёра кейса и у тестового
+        db.add(Assignment(participant_id=parts[ext].id, test_id=t.id, reason="по курсу"))
     db.commit()
 
 

@@ -23,20 +23,20 @@ def test_settings_change_recomputes(demo) -> None:  # noqa: F811
     hr = login("hr@pulse.demo")
     s = hr.get("/api/settings").json()
     assert s["analytics"]["level_threshold"] == 0.25 and "health" in s["preview"]
-    before = len(hr.get("/api/signals").json())
+    before = len(hr.get("/api/signals?period=2").json())
     s2 = hr.put(
         "/api/settings",
-        json={"analytics": {"growth_slope": 0.5, "level_threshold": 0.9}},
+        json={"analytics": {"growth_slope": 0.5, "low_critical": 0.0, "gap_threshold": 0.9}},
         headers=csrf_headers(hr),
     ).json()
     assert s2["analytics"]["growth_slope"] == 0.5
-    assert len(hr.get("/api/signals").json()) < before
+    assert len(hr.get("/api/signals?period=2").json()) < before
     hr.post("/api/settings/reset", headers=csrf_headers(hr))
-    assert len(hr.get("/api/signals").json()) == before
+    assert len(hr.get("/api/signals?period=2").json()) == before
     r = hr.put(
-        "/api/settings", json={"rules": {"health": {"on": True, "value": 30}}}, headers=csrf_headers(hr)
+        "/api/settings", json={"rules": {"health": {"on": True, "value": 95}}}, headers=csrf_headers(hr)
     ).json()
-    assert set(r["preview"]["health"]) == {"П-02", "П-03"}
+    assert set(r["preview"]["health"]) == {"П-05"}
 
 
 def test_builder_adds_mirrored_questions(demo) -> None:  # noqa: F811
@@ -63,7 +63,6 @@ def test_builder_adds_mirrored_questions(demo) -> None:  # noqa: F811
     new_i = next(x for x in q["intern"]["questions"] if "аттестации" in x["text"])
     new_m = next(x for x in q["mentor"]["questions"] if "аттестации" in x["text"])
     assert new_i["mirror"] == new_m["id"]
-    assert all(x["mirror"] for x in q["intern"]["questions"] if x["qtype"] != "text")
     me = login("intern@pulse.demo").get("/api/me").json()
     assert any("аттестации" in x["text"] for x in me["questionnaire"]["questions"])
 
@@ -72,20 +71,18 @@ def test_mailing_remind_and_outcomes(demo) -> None:  # noqa: F811
     hr = login("hr@pulse.demo")
     h = csrf_headers(hr)
     m = hr.get("/api/forms/mailing").json()
-    assert m["got"] == 9 and m["total"] == 10
-    assert "Н-204" in hr.post("/api/forms/remind", json={"ids": ["Н-204"]}, headers=h).json()["message"]
+    assert m["got"] == 10 and m["total"] == 12
+    assert "Н-006" in hr.post("/api/forms/remind", json={"ids": ["Н-006"]}, headers=h).json()["message"]
     assert (
-        next(r for r in hr.get("/api/forms/mailing").json()["rows"] if r["external_id"] == "Н-204")["status"]
+        next(r for r in hr.get("/api/forms/mailing").json()["rows"] if r["external_id"] == "Н-006")["status"]
         == "напомнили"
     )
     mentor = login("mentor@pulse.demo")
     assert "анкету" in mentor.get("/api/notifications").json()["items"][0]["title"]
     o = hr.get("/api/program/overview").json()
-    assert [u["external_id"] for u in o["unpaired"]] == ["С-106"]
+    assert o["unpaired"] == []
     pid = o["outcomes"][0]["pair_id"]
     assert hr.post(f"/api/pairs/{pid}/outcome", json={"outcome": "stay"}, headers=h).status_code == 200
-    cands = hr.get(f"/api/participants/{o['unpaired'][0]['id']}/candidates").json()
-    assert cands[0]["external_id"] == "Н-206"
 
 
 def test_hr_sees_filled_answers_read_only(demo) -> None:  # noqa: F811
@@ -95,6 +92,6 @@ def test_hr_sees_filled_answers_read_only(demo) -> None:  # noqa: F811
     assert next(r for r in rows if r["status"] != "заполнено")["response_id"] is None
     v = hr.get(f"/api/forms/responses/{filled['response_id']}").json()
     assert v["external_id"] == filled["external_id"] and len(v["answers"]) >= 5
-    assert any(a["value"] for a in v["answers"]) and v["answers"][0]["max"] == 10
+    assert any(a["value"] for a in v["answers"]) and v["answers"][0]["max"] == 5
     assert login("lead@pulse.demo").get(f"/api/forms/responses/{filled['response_id']}").status_code == 403
     assert hr.get("/api/forms/responses/999999").status_code == 404

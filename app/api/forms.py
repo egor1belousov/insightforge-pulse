@@ -22,6 +22,7 @@ from app.core.security import make_survey_token, read_survey_token
 from app.core.settings import get_settings
 from app.db.models import Notification, Participant, Program, Response, TalkRequest, User
 from app.db.session import SessionLocal, get_db
+from app.seed import DEMO_MENTOR
 from app.services import integrations
 from app.services.events.bus import bus
 from app.services.forms import connectors
@@ -205,11 +206,11 @@ def demo_response(user: User = Depends(require_role(*HR_ONLY)), db: Session = De
     period = current_period(db, prog)
     parts = db.query(Participant).filter(Participant.program_id == prog.id).all()
     have = {r.participant_id for r in db.query(Response).filter(Response.period == period)}
-    target = next((p for p in parts if p.external_id == "Н-204" and p.id not in have), None)
+    target = next((p for p in parts if p.external_id == DEMO_MENTOR and p.id not in have), None)
     target = target or next(
         (p for p in parts if p.id not in have and active_questionnaire(db, prog.id, p.side)), None
     )
-    target = target or next(p for p in parts if p.external_id == "С-104")
+    target = target or next(p for p in parts if p.external_id == DEMO_MENTOR)
     qn = active_questionnaire(db, prog.id, target.side)
     last = (
         db.query(Response)

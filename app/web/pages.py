@@ -52,16 +52,16 @@ DEMO_ACCOUNTS = [
     {"email": "lead@pulse.demo", "label": "Руководитель программы", "scope": "Все пары, без назначений"},
     {
         "email": "mentor@pulse.demo",
-        "label": "Наставник Н-204",
+        "label": "Наставник Н-006",
         "scope": "Только своя пара, без ответов стажёра",
     },
     {
         "email": "intern@pulse.demo",
-        "label": "Стажёр С-104",
+        "label": "Стажёр СТ-006",
         "scope": "Только своя стажировка, без ответов наставника",
     },
 ]
-ASSET_V = "19"
+ASSET_V = "20"
 
 
 def home_for(user: User) -> str:
