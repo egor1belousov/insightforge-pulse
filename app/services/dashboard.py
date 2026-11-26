@@ -246,7 +246,16 @@ def dashboard(
                 "code": pair.code,
                 "zone": zone,
                 "zone_ru": ZONE[zone] if zone else None,
-                "timeline": [{"p": t["p"], "zone": t["zone"], "dot": t["dot"]} for t in tl],
+                "timeline": [
+                    {
+                        "p": t["p"],
+                        "zone": t["zone"],
+                        "dot": t["dot"],
+                        "index": t["index"],
+                        "labels": list(dict.fromkeys(x["label"] for x in t["signals"])),
+                    }
+                    for t in tl
+                ],
                 "flagged": [t["p"] for t in tl if t["zone"] != "green"],
                 "red_months": [t["p"] for t in tl if t["zone"] == "red"],
                 "intern": pair.intern.external_id,

@@ -3,7 +3,7 @@
   "use strict";
   const { api, esc, toast } = window.Pulse;
   const role = document.getElementById("main").dataset.role, isHr = role === "hr";
-  const META = { kpi: "Ключевые показатели", tasks: "Мои задачи на неделю", signals: "Сигналы", map: "Карта пар", trend: "Динамика и прогноз", system: "Проблема пары или программы", forms: "Анкеты за месяц", feed: "Комментарии", health: "Индекс здоровья" };
+  const META = { kpi: "Ключевые показатели", tasks: "Мои задачи на неделю", signals: "Сигналы", map: "Карта пар", trend: "Динамика по периодам", system: "Проблема пары или программы", forms: "Анкеты за месяц", feed: "Комментарии", health: "Индекс здоровья" };
   const FLEX = { kpi: "1 1 100%", tasks: "1 1 380px", signals: "1 1 460px", map: "1 1 380px", trend: "2 1 560px", system: "1 1 340px", forms: "1 1 300px", feed: "1 1 460px", health: "1 1 300px" };
   const PRESETS = [["hr", "HR: всё", {}], ["lead", "Руководителю: кратко", { forms: true, feed: true, health: true, tasks: true }], ["coach", "Работа с наставниками", { kpi: true, map: true, trend: true }]];
   let D = null, L = null, edit = false, period = null, dept = "all", flash = null;
@@ -82,36 +82,23 @@
     h += '</div><p class="xs muted" style="text-align:center">работа стажёра (наставник) →</p><p class="xs muted">Средние по всем показателям анкеты, граница — 4 из 5. Цвет — светофор пары.</p></div></div>';
     return card("map", h);
   }
-  // Телефон: своя сетка графика под ширину экрана, а не уменьшенная копия десктопной
-  const PHONE = window.matchMedia("(max-width: 767px)");
-  PHONE.addEventListener("change", () => { if (D) render(); });
   function W_trend() {
-    const ph = PHONE.matches, ms = D.months, idx = ms.findIndex((x) => x.p === D.period), n = ms.length;
-    const G = ph
-      ? { w: 340, h: 250, l: 36, r: 330, t: 12, ph: 196, fs: 12, ticks: [1, 0.5, 0], lw: 3, fw: 2.4 }
-      : { w: 640, h: 252, l: 40, r: 628, t: 14, ph: 216, fs: 10, ticks: [1, 0.75, 0.5, 0.25, 0], lw: 2.4, fw: 2 };
-    const fcast = D.period === D.last, step = ph ? (G.r - G.l) / Math.max(1, n - (fcast ? 0 : 1)) : 98;
-    const X = (i) => G.l + i * step, Y = (v) => G.t + (1 - Math.min(Math.max(0, v) / 0.6, 1)) * G.ph;
-    const fx = Math.min(X(n), G.r), base = G.t + G.ph;
-    let h = head("trend", "Динамика расхождения и прогноз");
-    h += '<div class="chart-wrap"><svg viewBox="0 0 ' + G.w + " " + G.h + '" role="img" aria-label="Линии расхождения по парам по месяцам и прогноз" style="width:100%;height:auto;display:block;margin-top:4px">';
-    if (fcast) h += '<rect x="' + X(n - 1) + '" y="' + G.t + '" width="' + (fx - X(n - 1)) + '" height="' + G.ph + '" fill="#F3F5F9" rx="6"></rect>';
-    G.ticks.forEach((v) => { const y = G.t + (1 - v) * G.ph; h += '<line x1="' + G.l + '" x2="' + G.r + '" y1="' + y + '" y2="' + y + '" stroke="#E6E9EF"></line><text x="' + (G.l - 6) + '" y="' + (y + 4) + '" font-size="' + G.fs + '" fill="#5B6478" text-anchor="end">' + (v * 0.6).toFixed(ph ? 1 : 2) + "</text>"; });
-    const ry = Y(D.red_zone);
-    h += '<line x1="' + G.l + '" x2="' + G.r + '" y1="' + ry + '" y2="' + ry + '" stroke="#C93434" stroke-dasharray="3 4"></line><text x="' + (G.l + 4) + '" y="' + (ry - 5) + '" font-size="' + G.fs + '" fill="#C93434">красная зона</text>';
+    // Матрица «пары × контрольные периоды»: цвет — светофор, число — индекс здоровья, подсказка — сигналы.
+    const ms = D.months, cols = "minmax(64px,88px) repeat(" + ms.length + ",minmax(40px,1fr))";
+    let h = head("trend", "Динамика по контрольным периодам");
+    h += '<div class="scroll-x"><div style="display:grid;grid-template-columns:' + cols + ';gap:4px;min-width:360px;font-size:12px"><span></span>';
+    h += ms.map((m) => '<span style="text-align:center;color:' + (m.p === D.period ? "var(--accent)" : "var(--muted)") + ';font-weight:' + (m.p === D.period ? 700 : 500) + '">' + esc(m.short) + "</span>").join("");
     D.pairs.forEach((p) => {
-      const pts = p.abs.map(([per, v]) => X(ms.findIndex((x) => x.p === per)) + "," + Y(v).toFixed(1));
-      h += '<polyline points="' + pts.join(" ") + '" fill="none" stroke="' + p.st.dot + '" stroke-width="' + (flash === p.id ? G.lw + 1.5 : G.lw) + '" stroke-linejoin="round" stroke-linecap="round"></polyline>';
-      if (p.forecast != null && p.abs.length) { const last = p.abs[p.abs.length - 1]; h += '<polyline points="' + X(ms.findIndex((x) => x.p === last[0])) + "," + Y(last[1]).toFixed(1) + " " + fx + "," + Y(p.forecast).toFixed(1) + '" fill="none" stroke="' + p.st.dot + '" stroke-width="' + G.fw + '" stroke-dasharray="4 4"></polyline>'; }
-      if (ph && p.abs.length) { const last = p.abs[p.abs.length - 1]; h += '<circle cx="' + X(ms.findIndex((x) => x.p === last[0])) + '" cy="' + Y(last[1]).toFixed(1) + '" r="4" fill="' + p.st.dot + '" stroke="#fff" stroke-width="1.5"></circle>'; }
+      const by = {}; (p.timeline || []).forEach((t) => (by[t.p] = t));
+      h += '<a href="' + pairLink(p.id) + '" class="small" style="align-self:center;font-weight:600;color:inherit;text-decoration:none;white-space:nowrap" title="' + esc(p.intern + " · " + p.mentor) + '">' + esc(p.code) + ' <span class="xs muted">' + esc(p.intern) + "</span></a>";
+      ms.forEach((m) => {
+        const t = by[m.p];
+        if (!t) { h += '<span style="height:34px;border-radius:8px;background:var(--soft);opacity:.5"></span>'; return; }
+        const tip = m.full + ": " + ({ red: "критичный сигнал", amber: "зона внимания", green: "сигналов нет" }[t.zone]) + (t.labels.length ? " — " + t.labels.join(", ") : "") + ". Индекс " + t.index;
+        h += '<a href="' + pairLink(p.id) + '" title="' + esc(tip) + '" aria-label="' + esc(p.code + ", " + tip) + '" style="height:34px;border-radius:8px;background:' + t.dot + ';color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;text-decoration:none' + (m.p === D.period ? ";outline:2px solid var(--ink);outline-offset:1px" : "") + '">' + t.index + "</a>";
+      });
     });
-    ms.forEach((m, i) => { h += '<text x="' + X(i) + '" y="' + (base + (ph ? 22 : 18)) + '" font-size="' + (ph ? 12 : 11) + '" fill="' + (i <= idx ? "#5B6478" : "#B0B7C6") + '" text-anchor="middle">' + esc(m.short) + "</text>"; });
-    if (fcast) h += ph
-      ? '<text x="' + ((X(n - 1) + fx) / 2) + '" y="' + (G.t + 14) + '" font-size="12" fill="#0A7CD6" text-anchor="middle">' + esc(D.next_short) + "</text>"
-      : '<text x="' + fx + '" y="' + (base + 18) + '" font-size="11" fill="#0A7CD6" text-anchor="end">' + esc(D.next_short) + " · прогноз</text>";
-    h += "</svg></div>";
-    if (idx === 0) h += '<p class="small" style="background:var(--bg);border-radius:12px;padding:12px;margin-top:8px">Пока только одна анкета — тренд появится после второй.</p>';
-    h += '<div class="row chart-legend" style="gap:8px 14px;margin-top:8px">' + D.pairs.map((p) => '<span class="row nowrap xs" style="gap:6px;color:var(--muted-2)"><span style="width:14px;height:3px;border-radius:2px;background:' + p.st.dot + '"></span>' + esc(p.code + " · " + p.st.label) + "</span>").join("") + "</div>";
+    h += '</div></div><div class="row xs" style="gap:14px;margin-top:10px;color:var(--muted-2)">' + [["#C93434", "критичный сигнал"], ["#E38B00", "зона внимания"], ["#1A7D44", "сигналов нет"]].map((x) => '<span class="row nowrap" style="gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:' + x[0] + '"></span>' + x[1] + "</span>").join("") + '<span>число — индекс здоровья, наведите для сигналов</span></div>';
     return card("trend", h);
   }
   function W_system() {
