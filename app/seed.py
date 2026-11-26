@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.core.settings import get_settings
-from app.db.models import Organization, Participant, Program, Response, User
+from app.db.models import AppSetting, Organization, Participant, Program, Response, User
 from app.db.session import Base, SessionLocal, engine
 from app.services.accounts import ensure_topics
 from app.services.analytics.service import recompute_program
@@ -34,6 +34,31 @@ DEMO_USERS = [
     ("mentor@pulse.demo", f"Наставник {DEMO_MENTOR}", "mentor", DEMO_MENTOR),
     ("intern@pulse.demo", f"Стажёр {DEMO_INTERN}", "intern", DEMO_INTERN),
 ]
+
+
+KEEP_PREFIXES = ("int_", "intlog_", "seen_")  # подключения форм, их журналы и уже принятые ответы
+
+
+def _kept_settings() -> list[tuple[str, object]]:
+    """Настройки интеграций демо-организации, которые переживают сброс базы."""
+    try:
+        with SessionLocal() as db:
+            org = (
+                db.query(User.organization_id)
+                .join(Organization, Organization.id == User.organization_id)
+                .filter(User.email == "hr@pulse.demo", Organization.sandbox_token.is_(None))
+                .scalar()
+            )
+            rows = db.query(AppSetting).filter(AppSetting.organization_id == org).all() if org else []
+            return [(r.key, r.value) for r in rows if r.key.startswith(KEEP_PREFIXES)]
+    except Exception:  # noqa: BLE001 — базы ещё нет
+        return []
+
+
+def _restore_settings(db: Session, org: int, kept: list[tuple[str, object]]) -> None:
+    for key, value in kept:
+        db.add(AppSetting(organization_id=org, key=key, value=value))
+    db.commit()
 
 
 def reset_db() -> None:
@@ -256,10 +281,14 @@ def main() -> None:
         "--fast", action="store_true", help="разбор комментариев правилами, без LLM (секунды вместо минут)"
     )
     args = parser.parse_args()
+    kept = _kept_settings() if args.reset else []
     if args.reset:
         reset_db()
     with SessionLocal() as db:
         prog = seed_accounts(db)
+        if kept:
+            _restore_settings(db, prog.organization_id, kept)
+            print(f"Сохранены подключения форм и интеграций: {len(kept)} настроек")
         if args.reset or not db.query(Response).count():
             print(
                 "Загружаем демо-анкеты и пересчитываем сигналы"
