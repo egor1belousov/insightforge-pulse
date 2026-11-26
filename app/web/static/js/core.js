@@ -171,6 +171,7 @@
     a.onfinish = () => { el.style.strokeDasharray = ""; };
   }
   function countUp(el) {
+    if (el.children.length) return; // значение с разметкой (светофор) не анимируем: textContent её сотрёт
     const raw = el.textContent.trim(), m = raw.match(/^(\d+(?:[.,]\d+)?)(.*)$/);
     if (!m) return;
     const target = parseFloat(m[1].replace(",", ".")), dec = (m[1].split(/[.,]/)[1] || "").length, tail = m[2], t0 = performance.now();

@@ -31,9 +31,14 @@ from app.services.llm.fallback import tone_label
 
 ST = {
     "ok": {"label": "Согласны, растут", "bg": "var(--ok-bg)", "fg": "var(--ok-fg)", "dot": "#1A7D44"},
-    "over": {"label": "Переоценивает себя", "bg": "var(--over-bg)", "fg": "var(--over-fg)", "dot": "#A65E00"},
+    "over": {
+        "label": "Стажёр оценивает выше",
+        "bg": "var(--over-bg)",
+        "fg": "var(--over-fg)",
+        "dot": "#A65E00",
+    },
     "under": {
-        "label": "Недооценивает себя",
+        "label": "Стажёр оценивает ниже",
         "bg": "var(--under-bg)",
         "fg": "var(--under-fg)",
         "dot": "#2F6FDB",
@@ -82,8 +87,8 @@ ZONE = {
     "green": {"label": "Положительная оценка", "dot": "#1A7D44"},
 }
 TITLE = {
-    "over": "Оценки расходятся: стажёр выше",
-    "under": "Стажёр недооценивает себя",
+    "over": "Стажёр видит ситуацию лучше, чем наставник",
+    "under": "Стажёр видит ситуацию хуже, чем наставник",
     "both": "Оба снижают оценки",
     "words": "Высокие баллы, тревожный текст",
     "alert": "Проблемный показатель",
@@ -160,6 +165,15 @@ def _state(res: PairResult | None, ps: PairSeries) -> str:
     first, last = ps.periods[0], res.period
     rising = all((ps.overall(s, last) or 0) >= (ps.overall(s, first) or 0) for s in SIDES)
     return "ok" if rising and len(ps.periods) > 1 else "neutral"
+
+
+def _side_all(ps: PairSeries, side: str, upto: int) -> float | None:
+    """Средняя оценка стороны по всем её показателям, включая темы без пары, в последнем известном месяце."""
+    for p in reversed([x for x in ps.periods if x <= upto]):
+        vals = [s[p] for s in ps.values.get(side, {}).values() if p in s]
+        if vals:
+            return round(sum(vals) / len(vals), 3)
+    return None
 
 
 def _last_known(ps: PairSeries, side: str, upto: int) -> float | None:
@@ -245,6 +259,8 @@ def dashboard(
                 "signals": [s.type for s in (res.signals if res else [])],
                 "i": _last_known(ps, "intern", m),
                 "m": _last_known(ps, "mentor", m),
+                "i_all": _side_all(ps, "intern", m),
+                "m_all": _side_all(ps, "mentor", m),
                 "abs": [[p, v] for p, v in abs_pts],
                 "forecast": _forecast(abs_pts) if m == last else None,
                 "abs_now": res.abs_delta if res else None,
@@ -371,7 +387,7 @@ def dashboard(
         .all()
     )
     topics = sorted(
-        set.intersection(*(set(ps.topics()) for ps in series)) if series else set(),
+        {t for ps in series for s in SIDES for t in ps.values.get(s, {})},
         key=lambda t: list(TOPIC_RU).index(t) if t in TOPIC_RU else 99,
     )
     heat_rows = []
