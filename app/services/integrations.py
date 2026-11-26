@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.settings import get_settings
 from app.db.models import AppSetting
 
-OPTIONAL = {"org_id"}
+OPTIONAL = {"org_id", "sheet_url_mentor"}
 FORM_ID_RE = re.compile(r"[a-fA-F\d]{24}")
 
 KINDS: dict[str, dict] = {
@@ -66,9 +66,15 @@ KINDS: dict[str, dict] = {
         "fields": [
             (
                 "sheet_url",
-                "Ссылка на таблицу ответов",
+                "Таблица ответов формы стажёра",
                 False,
                 "Форма → Ответы → «Связать с Таблицами»; в таблице «Настройки доступа» → «Все, у кого есть ссылка: читатель». Вставьте ссылку на таблицу",
+            ),
+            (
+                "sheet_url_mentor",
+                "Таблица ответов формы наставника",
+                False,
+                "Вторая форма, если анкеты сторон разные. Можно оставить пустым: одна форма на обе стороны",
             ),
         ],
     },
@@ -259,10 +265,15 @@ def check(kind: str, cfg: dict) -> str:
         if kind == "google":
             from app.services.forms.connectors import fetch_google_sheet, sheet_csv_url
 
-            if not sheet_csv_url(cfg["sheet_url"]):
-                raise CheckError("Нужна ссылка на Google Таблицу: docs.google.com/spreadsheets/…")
-            heads, rows = fetch_google_sheet(cfg)
-            return f"таблица: вопросов {max(0, len(heads) - 1)}, ответов {len(rows)}"
+            parts = []
+            for key, who in (("sheet_url", "стажёр"), ("sheet_url_mentor", "наставник")):
+                if not cfg.get(key):
+                    continue
+                if not sheet_csv_url(cfg[key]):
+                    raise CheckError("Нужна ссылка на Google Таблицу: docs.google.com/spreadsheets/…")
+                heads, rows = fetch_google_sheet({"sheet_url": cfg[key]})
+                parts.append(f"{who}: вопросов {max(0, len(heads) - 1)}, ответов {len(rows)}")
+            return ("таблицы — " if len(parts) > 1 else "таблица: ") + "; ".join(parts)
         if kind == "yandex_mail":
             import imaplib
 

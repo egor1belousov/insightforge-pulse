@@ -358,12 +358,35 @@ def test_google_sheet_rows_reach_participant(demo, monkeypatch) -> None:  # noqa
     heads += ["Сложности за период", "Что мешает работать и развиваться"]
     rows = [["24.11.2026 21:00:00", "СТ-006", "IT", "Месяц 6", "4", "3", "4", "5", "4", "4", "4"]]
     rows[0] += ["Мало времени на вопросы", "Ничего не мешает"]
-    monkeypatch.setattr(connectors, "fetch_google_sheet", lambda cfg: (heads, rows))
+    mheads = ["Отметка времени", "ID наставника", "ID стажера", "Контрольный период"]
+    mheads += [
+        "Понимание задач и ожиданий",
+        "Качество выполнения задач",
+        "Самостоятельность",
+        "Соблюдение сроков и организация работы",
+        "Вовлеченность и инициативность",
+        "Взаимодействие с наставником и командой",
+    ]
+    mrows = [["24.11.2026 21:05:00", "Н-006", "СТ-006", "Месяц 6", "2", "2", "3", "2", "3", "2"]]
+    sheets = {"intern": (heads, rows), "mentor": (mheads, mrows)}
+    monkeypatch.setattr(
+        connectors,
+        "fetch_google_sheet",
+        lambda cfg: sheets["mentor" if "/m/" in cfg["sheet_url"] else "intern"],
+    )
     with SessionLocal() as db:
         prog = db.query(Program).first()
-        cfg = {"sheet_url": "https://docs.google.com/spreadsheets/d/x/edit", "connected": True}
-        assert connectors.poll(db, prog.id, "google", cfg) == 1
+        cfg = {
+            "sheet_url": "https://docs.google.com/spreadsheets/d/x/edit",
+            "sheet_url_mentor": "https://docs.google.com/spreadsheets/d/m/edit",
+            "connected": True,
+        }
+        assert connectors.poll(db, prog.id, "google", cfg) == 2  # отдельные формы стажёра и наставника
         assert connectors.poll(db, prog.id, "google", cfg) == 0
+        mentor = db.query(Participant).filter(Participant.external_id == "Н-006").one()
+        assert (
+            db.query(Response).filter(Response.participant_id == mentor.id, Response.period == 6).count() == 1
+        )
         part = db.query(Participant).filter(Participant.external_id == "СТ-006").one()
         r = db.query(Response).filter(Response.participant_id == part.id, Response.source == "google").one()
         assert sorted(a.text for a in r.answers if a.text) == ["Мало времени на вопросы", "Ничего не мешает"]

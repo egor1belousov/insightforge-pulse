@@ -266,16 +266,18 @@ def fetch_google_rows(cfg: dict) -> list[tuple[str, dict]]:
     """Строки таблицы → (ключ, {вопрос: ответ}); ключ — время ответа и содержимое строки."""
     import hashlib
 
-    heads, rows = fetch_google_sheet(cfg)
     out = []
-    for row in rows:
-        fields = {
-            h.strip(): (row[i].strip() if i < len(row) else "")
-            for i, h in enumerate(heads)
-            if h.strip() and not SERVICE_COL_RE.match(h.strip())
-        }
-        key = hashlib.sha1("\u241f".join(row).encode()).hexdigest()[:20]
-        out.append((key, fields))
+    # у каждой стороны может быть своя форма и своя таблица ответов
+    for n, url in enumerate(u for u in (cfg.get("sheet_url"), cfg.get("sheet_url_mentor")) if u):
+        heads, rows = fetch_google_sheet({**cfg, "sheet_url": url})
+        for row in rows:
+            fields = {
+                h.strip(): (row[i].strip() if i < len(row) else "")
+                for i, h in enumerate(heads)
+                if h.strip() and not SERVICE_COL_RE.match(h.strip())
+            }
+            key = hashlib.sha1(("\u241f".join(row) + ("" if n == 0 else url)).encode()).hexdigest()[:20]
+            out.append((key, fields))
     return out
 
 
