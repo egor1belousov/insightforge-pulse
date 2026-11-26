@@ -155,6 +155,7 @@ def load_series(db: Session, program: Program, use_llm: bool = True) -> list[Pai
             "intern": defaultdict(dict),
             "mentor": defaultdict(dict),
         }
+        raw: dict[str, dict[str, dict[int, str]]] = {"intern": defaultdict(dict), "mentor": defaultdict(dict)}
         texts: list[tuple[str, int, Answer]] = []
         for r in resps:
             if r.participant_id == pair.intern_participant_id:
@@ -164,6 +165,7 @@ def load_series(db: Session, program: Program, use_llm: bool = True) -> list[Pai
             else:
                 continue
             acc: dict[str, list[float]] = defaultdict(list)
+            shown: dict[str, list[str]] = defaultdict(list)
             for a in r.answers:
                 q: Question | None = a.question
                 if a.text and (q is None or q.qtype == "text"):
@@ -171,15 +173,21 @@ def load_series(db: Session, program: Program, use_llm: bool = True) -> list[Pai
                     continue
                 if a.value_norm is None or q is None or q.topic_id is None:
                     continue
-                acc[topics.get(q.topic_id, "other")].append(a.value_norm)
+                code = topics.get(q.topic_id, "other")
+                acc[code].append(a.value_norm)
+                if a.value_raw and q.scale_max is not None:
+                    shown[code].append(f"{a.value_raw} из {q.scale_max:g}")
             for t, vs in acc.items():
                 values[side][t][r.period] = sum(vs) / len(vs)
+                if len(shown[t]) == 1:
+                    raw[side][t][r.period] = shown[t][0]
         ps = PairSeries(
             pair.id,
             pair.code,
             periods,
             {s: dict(v) for s, v in values.items()},
             start_period=pair.start_period,
+            raw={s: dict(v) for s, v in raw.items()},
         )
         for side, period, a in texts:
             ca = ensure_comment_analysis(db, a, ps.overall(side, period), side, use_llm=use_llm)
@@ -238,7 +246,7 @@ def recompute_program(
                         strength=s.strength,
                         description=s.description,
                         cause=s.cause,
-                        facts=s.facts | {"state": res.state},
+                        facts=s.facts | {"state": res.state, "zone": res.zone},
                         verdict=verdicts.get((ps.pair_id, p, s.type, s.topic)),
                     )
                 )

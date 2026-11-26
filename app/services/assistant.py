@@ -130,19 +130,31 @@ def _fallback_staff(q: str, d: dict) -> AssistantAnswer:
         p = next((x for x in d["pairs"] if x["code"] == code), None)
         if p:
             a = next((x for x in d["alerts"] if x["pair"] == code), None)
-            why = a["why"] if a else "Сигналов нет: оценки сторон согласованы."
+            past = next((x for x in d.get("history", []) if x["pair"] == code), None)
+            why = a["why"] if a else "Сейчас сигналов нет: оценки сторон согласованы."
+            if not a and past:
+                why += f" Внимание требовалось: {past['months']}" + (
+                    f" (критично — {past['red']})." if past["red"] else "."
+                )
             return AssistantAnswer(
                 answer=f"{code}: индекс {p['health']}, «{p['st']['label']}». {why} Что делать — во вкладке «Действия» карточки пары: там рекомендации и повестка встречи.",
                 refs=[f"сигналы {code}"],
             )
     if re.search(r"перв|приоритет|срочн|кому.*помо", t):
         order = [p for p in sorted(d["pairs"], key=lambda x: x["health"] or 100) if p["visible"]]
-        txt = (
-            ", ".join(f"{p['code']} (индекс {p['health']}, {p['st']['label'].lower()})" for p in order[:3])
-            or "сейчас сигналов нет"
-        )
+        txt = ", ".join(f"{p['code']} (индекс {p['health']}, {p['st']['label'].lower()})" for p in order[:3])
+        if not txt and d.get("history"):
+            hist = ", ".join(
+                f"{h['pair']} ({h['intern']}: {h['red'] or h['months']})" for h in d["history"][:3]
+            )
+            pending = d["forms"]["pending"]
+            return AssistantAnswer(
+                answer=f"Сейчас сигналов нет. Сильнее всего внимание требовалось {hist} — проверьте, что улучшение закрепилось."
+                + (f" Анкеты за этот месяц ещё не сдали: {', '.join(pending)}." if pending else ""),
+                refs=["история сигналов", "анкеты за месяц"],
+            )
         return AssistantAnswer(
-            answer=f"По индексу здоровья первыми — {txt}. Начните с пары с самым низким индексом.",
+            answer=f"По индексу здоровья первыми — {txt or 'сейчас сигналов нет'}. Начните с пары с самым низким индексом.",
             refs=["индекс здоровья пар"],
         )
     if re.search(r"программ|систем|общ", t) and d["program"]["box"]:

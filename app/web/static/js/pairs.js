@@ -66,8 +66,21 @@
     return h;
   }
 
+  function tabTimeline() {
+    if (!C.timeline || !C.timeline.length) return "";
+    let h = '<section class="card col" style="gap:12px"><p class="eyebrow">Светофор по контрольным периодам</p><div style="display:grid;grid-template-columns:repeat(' + C.timeline.length + ',minmax(0,1fr));gap:6px">';
+    C.timeline.forEach((t) => { h += '<div class="col" title="' + esc(t.zone_ru) + '" style="align-items:center;gap:4px;padding:8px 4px;border-radius:12px;background:var(--bg)"><span class="xs muted">' + esc(t.month) + '</span><span aria-hidden="true" style="width:18px;height:18px;border-radius:50%;background:' + t.dot + '"></span><span class="xs">' + t.index + "</span></div>"; });
+    h += '</div><div class="col" style="gap:8px">';
+    C.timeline.filter((t) => t.signals.length).forEach((t) => {
+      h += '<div class="list-row" style="align-items:flex-start"><span class="pair-badge" style="background:' + t.dot + ';min-width:84px">' + esc(t.month) + '</span><span class="grow col" style="gap:4px">' + t.signals.map((s) => '<span class="small"><b>' + esc(s.label) + ".</b> " + esc(s.description) + "</span>").join("") + "</span></div>";
+    });
+    if (!C.timeline.some((t) => t.signals.length)) h += '<p class="small" style="color:var(--ok-fg)">За все периоды сигналов не было.</p>';
+    h += '</div><p class="xs muted">Красный — оценка 1–2 из 5, расхождение сторон на 2+ балла или падение на 2+ балла за месяц. Жёлтый — другие сигналы. Зелёный — сигналов нет.</p></section>';
+    return h;
+  }
+
   function tabDiag() {
-    let h = '<section class="card"><p class="eyebrow" style="margin-bottom:12px">Из чего состоит расхождение</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">';
+    let h = tabTimeline() + '<section class="card"><p class="eyebrow" style="margin-bottom:12px">Из чего состоит расхождение</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">';
     C.decomp.forEach((d) => { h += '<div class="col" style="border:1px solid ' + d.border + ';border-radius:14px;padding:14px;gap:8px"><div class="row between nowrap"><b class="small">' + esc(d.name) + '</b><span class="head" style="font-size:15px;color:' + d.color + '">' + esc(d.value) + '</span></div><div class="bar"><span style="width:' + d.pct + "%;background:" + d.color + '"></span></div><p class="small muted" style="line-height:1.45">' + esc(d.text) + "</p></div>"; });
     h += "</div></section>";
     h += '<div class="row" style="gap:8px">' + C.topics.map((t) => '<button type="button" class="pill" data-topic="' + t.k + '" aria-pressed="' + (topic === t.k) + '">' + esc(t.n) + "</button>").join("") + '<span class="grow"></span><div class="seg"><button type="button" data-scale="raw" aria-pressed="' + (scale === "raw") + '">Сырые баллы</button><button type="button" data-scale="cal" aria-pressed="' + (scale === "cal") + '">Личная шкала</button></div></div>';

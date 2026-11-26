@@ -32,7 +32,7 @@
   function W_kpi() {
     let h = (edit ? head("kpi", META.kpi) : "") + '<div class="grid-auto">';
     D.kpis.forEach((k) => {
-      h += '<div class="card kpi"><div class="row between nowrap"><p class="small muted">' + esc(k.label) + '</p><span class="help" title="' + esc(k.help) + '" aria-label="Пояснение: ' + esc(k.help) + '" tabindex="0">?</span></div><p class="value" style="color:' + k.color + '">' + esc(k.value) + '</p><p class="xs muted" style="margin-top:6px">' + esc(k.note) + "</p></div>";
+      h += '<div class="card kpi"><div class="row between nowrap"><p class="small muted">' + esc(k.label) + '</p><span class="help" title="' + esc(k.help) + '" aria-label="Пояснение: ' + esc(k.help) + '" tabindex="0">?</span></div><p class="value" style="color:' + k.color + '">' + (k.dots ? '<span class="row nowrap" style="gap:14px">' + k.dots.map((d) => '<span class="row nowrap" style="gap:6px"><span aria-hidden="true" style="width:16px;height:16px;border-radius:50%;background:' + d.color + '"></span>' + d.n + "</span>").join("") + "</span>" : esc(k.value)) + '</p><p class="xs muted" style="margin-top:6px">' + esc(k.note) + "</p></div>";
     });
     return '<section data-w="kpi" style="order:' + L.order.indexOf("kpi") + ";flex:" + FLEX.kpi + ";min-width:0;" + (edit ? "outline:2px dashed #9DBDF2;outline-offset:4px;border-radius:18px" : "") + '">' + h + "</div></section>";
   }
@@ -51,7 +51,12 @@
   }
   function W_signals() {
     let h = head("signals", "Сигналы · что требует внимания");
-    if (!D.alerts.length) h += '<div class="issue done"><span><b>Сигналов нет.</b> В этот период и в этом подразделении пары двигались согласованно. Сдвиньте ползунок вперёд, чтобы увидеть, когда появились первые сигналы.</span></div>';
+    if (!D.alerts.length) h += '<div class="issue done"><span><b>Сигналов нет.</b> В этот период и в этом подразделении пары двигались согласованно.' + (D.history && D.history.length ? " Ниже — кому внимание требовалось раньше." : " Сдвиньте ползунок вперёд, чтобы увидеть, когда появились первые сигналы.") + "</span></div>";
+    if (!D.alerts.length && D.history && D.history.length) {
+      h += '<p class="xs muted" style="font-weight:700;letter-spacing:.06em;margin:10px 0 6px">ЗА ПРОГРАММУ</p><div class="col" style="gap:8px;margin-bottom:10px">';
+      D.history.forEach((x) => { h += '<a class="signal-btn" style="text-decoration:none;color:inherit" href="' + pairLink(x.pair_id) + '"><span class="pair-badge" style="background:' + (x.zone === "red" ? "#C93434" : "#E38B00") + '">' + esc(x.pair) + '</span><span class="grow col" style="gap:3px"><span class="small" style="font-weight:600">' + esc(x.intern) + " · " + esc(x.months) + '</span><span class="small muted">' + (x.red ? "Критичные сигналы: " + esc(x.red) : "Зона внимания") + '</span></span><span aria-hidden="true" style="color:var(--accent);font-size:18px">→</span></a>'; });
+      h += "</div>";
+    }
     h += '<div class="col" style="gap:10px">';
     D.alerts.forEach((a) => {
       h += '<a class="signal-btn" style="text-decoration:none;color:inherit" href="' + (a.pair_id ? pairLink(a.pair_id) : "/pairs") + '"><span class="pair-badge" style="background:' + a.dot + '">' + esc(a.pair) + '</span><span class="grow col" style="gap:3px"><span class="xs muted" style="font-weight:700;letter-spacing:.06em">' + esc(a.type) + '</span><span class="small" style="font-weight:600">' + esc(a.title) + '</span><span class="small muted" style="line-height:1.45">' + esc(a.why) + '</span></span><span aria-hidden="true" style="color:var(--accent);font-size:18px">→</span></a>';
@@ -67,7 +72,7 @@
       let x = 8 + p.m * 84, y = 92 - p.i * 84;
       placed.forEach((q) => { if (Math.abs(q[0] - x) < 9 && Math.abs(q[1] - y) < 9) y += 10; });
       placed.push([x, y]);
-      h += '<a class="dash-pin" href="' + pairLink(p.id) + '" aria-label="Открыть пару ' + esc(p.code) + '" title="' + esc(p.code + " · " + p.st.label) + '" style="position:absolute;left:' + x.toFixed(1) + "%;top:" + y.toFixed(1) + "%;transform:translate(-50%,-50%);min-width:48px;height:32px;border-radius:999px;border:2px solid var(--card);background:" + p.st.dot + ';color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(5,7,14,.25);padding:0 8px;text-decoration:none' + (flash === p.id ? ";outline:3px solid #22C55E" : "") + '">' + esc(p.code) + "</a>";
+      h += '<a class="dash-pin" href="' + pairLink(p.id) + '" aria-label="Открыть пару ' + esc(p.code) + '" title="' + esc(p.code + " · " + p.st.label) + '" style="position:absolute;left:' + x.toFixed(1) + "%;top:" + y.toFixed(1) + "%;transform:translate(-50%,-50%);min-width:48px;height:32px;border-radius:999px;border:2px solid var(--card);background:" + p.st.dot + ';color:#fff;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(5,7,14,.25);padding:0 8px;text-decoration:none;white-space:nowrap' + (flash === p.id ? ";outline:3px solid #22C55E" : "") + '">' + esc(p.code) + "</a>";
     });
     h += '</div><p class="xs muted" style="text-align:center">оценка наставника →</p></div></div>';
     return card("map", h);
