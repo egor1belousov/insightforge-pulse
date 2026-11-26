@@ -35,9 +35,9 @@
     h += "</section></div>";
     box.innerHTML = h;
     const sb = box.querySelector("#survey-box");
-    if (open && D.questionnaire) PulseSurvey.render(sb, D.questionnaire, async (answers, comment) => {
+    if (open && D.questionnaire) PulseSurvey.render(sb, D.questionnaire, async (answers, comment, anyText) => {
       await api("POST", "/api/responses", { answers, comment }); reopen = false;
-      toast(comment.trim() ? "Ответы отправлены. Комментарий разобран — HR увидит его в карточке пары" : "Спасибо! Ответы отправлены"); load();
+      toast((anyText || comment).trim() ? "Ответы отправлены. Комментарий разобран — HR увидит его в карточке пары" : "Спасибо! Ответы отправлены"); load();
     });
     else if (!D.questionnaire) sb.innerHTML = '<p class="small muted">Анкета ещё не настроена. HR пришлёт её в начале месяца.</p>';
     else sb.innerHTML = '<div class="issue done"><span><b>Анкета получена, спасибо.</b> Сигналы вашей пары пересчитаны.</span></div>' + journey() + '<div class="row" style="gap:10px;margin-top:4px"><button type="button" class="btn small" id="reopen">Изменить ответы</button><span class="xs muted">Следующая анкета придёт в начале месяца «' + esc(D.next_name) + '» — 2 минуты.</span></div>';
